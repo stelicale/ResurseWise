@@ -1,6 +1,10 @@
 package io.dvloper.backend.entities;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
+
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -11,10 +15,16 @@ public class Log {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    private String actionType; 
+    @NotBlank(message = "Action type cannot be empty")
+    @Size(min = 3, max = 50, message = "Action type must be between 3 and 50 characters")
+    private String actionType;
+
+    @NotNull(message = "Action date is required")
     private LocalDateTime actionDate;
     
     @Column(columnDefinition = "TEXT")
+    @NotBlank(message = "Comments cannot be empty")
+    @Size(min = 1, max = 1000, message = "Comments must be between 1 and 1000 characters")
     private String comments;
 
     @ManyToOne

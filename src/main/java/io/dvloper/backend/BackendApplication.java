@@ -48,9 +48,11 @@ public class BackendApplication {
 
                 Log log = new Log("ASSIGN", macbook, admin, "Initial assignment via Seeder");
                 logRepo.save(log);
-
-                System.out.println("[SUCCEEDED] Database seeded successfully with UUIDs!");
             }
+
+            System.out.println("====================================================");
+            System.out.println("[SUCCEEDED] Database seeded successfully with UUIDs!");
+            System.out.println("====================================================");
         };
     }
 }

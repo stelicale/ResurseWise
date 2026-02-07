@@ -1,6 +1,10 @@
 package io.dvloper.backend.entities;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
+
 import java.time.LocalDate;
 import java.util.UUID;
 
@@ -11,11 +15,27 @@ public class Resource {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
+    @NotBlank(message = "Serial number cannot be empty")
+    @Size(min = 1, max = 100, message = "Serial number must be between 1 and 100 characters")
     private String serialNumber;
+    
+    @NotBlank(message = "Name cannot be empty")
+    @Size(min = 1, max = 100, message = "Name must be between 1 and 100 characters")
     private String name;
+
+    @NotBlank(message = "Model cannot be empty")
+    @Size(min = 1, max = 100, message = "Model must be between 1 and 100 characters")
     private String model;
+
+    @NotBlank(message = "Status cannot be empty")
+    @Size(min = 1, max = 100, message = "Status must be between 1 and 100 characters")
     private String status;
+
+    @NotNull(message = "Purchase date is required")
     private LocalDate purchaseDate;
+
+    @NotBlank(message = "Location cannot be empty")
+    @Size(min = 1, max = 100, message = "Location must be between 1 and 100 characters")
     private String location;
 
     @ManyToOne

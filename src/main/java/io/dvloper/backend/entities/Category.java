@@ -1,6 +1,9 @@
 package io.dvloper.backend.entities;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+
 import java.util.UUID;
 
 @Entity
@@ -10,8 +13,12 @@ public class Category {
     @GeneratedValue(strategy = GenerationType.UUID) // generate UUIDs
     private UUID id;
 
+    @NotBlank(message = "Name cannot be empty")
+    @Size(min = 3, max = 50, message = "Name must be between 3 and 50 characters")
     private String name;
     
+    @NotBlank(message = "Description cannot be empty")
+    @Size(min = 4, max = 200, message = "Description must be between 4 and 200 characters")
     @Column(columnDefinition = "TEXT")
     private String description;
 
