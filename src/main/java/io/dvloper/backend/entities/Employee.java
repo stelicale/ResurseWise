@@ -10,8 +10,11 @@ import java.util.UUID;
 @Table(name = "employees")
 public class Employee {
     @Id
-    // Is manually set from the Keycloak token
+    @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
+
+    @Column(name = "keycloak_id", unique = true)
+    private String keycloakId;
 
     @Column(unique = true)
     @NotBlank(message = "Email cannot be empty")
