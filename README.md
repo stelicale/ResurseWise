@@ -99,7 +99,7 @@ curl -X POST \
 After that, copy the value of `access_token` from the JSON response and use it in the `Authorize` button in Swagger UI or in the `Authorization` header for `cURL` requests:
 
 ```bash
-# shold receive HTTP/1.1 200 for Admin and HTTP/1.1 403 for Employee
+# should receive HTTP/1.1 200 for Admin and HTTP/1.1 403 for Employee
 curl -v http://localhost:8080/api/employees \
   -H "Authorization: Bearer TOKEN_HERE"
 ```
@@ -116,42 +116,35 @@ Returns a simple message to confirm the server is running, connected to the data
   * **Code:** 200 OK
   * **Content:** `Hello World from Spring Boot!`
 
-### Testing Example
-You can verify the API functionality (CRUD operations, Validation, and Error Handling) using the following `curl` commands:
+## Testing
+
+### Manual Testing
+A Postman collection is included for manual API testing.
+- Location: `docs/resourceManager.postman_collection.json`
+
+### Automated Testing
+The project uses `JUnit 5` and Spring Boot Test for integration and security testing. Code coverage is tracked via the `JaCoCo Maven plugin`.
 
 ```bash
-#!/bin/bash
-
-# 1. CREATE TEST (POST) -> Expect 201 Created
-curl -v -X POST http://localhost:8080/api/categories \
-  -H "Content-Type: application/json" \
-  -d '{"name": "Test Hardware", "description": "Echipamente de test"}'
-
-# 2. READ TEST (GET) -> Expect 200 OK
-# Verify that the category was stored
-curl -v http://localhost:8080/api/categories/"PUT_YOUR_UUID_HERE"
-
-# 3. UPDATE TEST (PUT) -> Expect 200 OK
-# Update category name to 'Hardware V2'
-curl -v -X PUT http://localhost:8080/api/categories/"PUT_YOUR_UUID_HERE" \
-  -H "Content-Type: application/json" \
-  -d '{"name": "Hardware V2", "description": "Descriere actualizata"}'
-  
-# 4. VALIDATION TEST (INTENTIONAL ERROR) -> Expect 400 Bad Request
-# Try to create a category with an empty name
-curl -v -X POST http://localhost:8080/api/categories \
-  -H "Content-Type: application/json" \
-  -d '{"name": "", "description": "Asta nu ar trebui sa mearga"}'
-
-# 5. DELETE TEST (DELETE) -> Expect 204 No Content
-curl -v -X DELETE http://localhost:8080/api/categories/"PUT_YOUR_UUID_HERE"
-
-# 6. FINAL CHECK (GET deleted resource) -> Expect 404 Not Found
-curl -v http://localhost:8080/api/categories/"PUT_YOUR_UUID_HERE"
-
-# 7. SWAGGER / OPENAPI CHECK
-# Check if Swagger documentation endpoint works
-curl -I http://localhost:8080/v3/api-docs
+DB_USER=admin DB_PASSWORD=secret ./mvnw clean test && awk -F, '{ instructions += $4 + $5; covered += $5 } END { print "Total Coverage: " covered/instructions*100 "%" }' target/site/jacoco/jacoco.csv
+...
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 1.536 s -- in io.dvloper.backend.BackendApplicationTests
+[INFO] 
+[INFO] Results:
+[INFO] 
+[INFO] Tests run: 4, Failures: 0, Errors: 0, Skipped: 0
+[INFO] 
+[INFO] 
+[INFO] --- jacoco:0.8.11:report (report) @ backend ---
+[INFO] Loading execution data file /home/stelian/backend/target/jacoco.exec
+[INFO] Analyzed bundle 'backend' with 13 classes
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  31.663 s
+[INFO] Finished at: 2026-02-10T18:04:48Z
+[INFO] ------------------------------------------------------------------------
+Total Coverage: 37.0811%
 ```
 
 ### Visualize the database

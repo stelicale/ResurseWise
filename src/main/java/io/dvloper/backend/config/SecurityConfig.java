@@ -24,7 +24,7 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-            .csrf(csrf -> csrf.disable()) // Opțional, pentru API-uri stateless
+            .csrf(csrf -> csrf.disable()) // for API-uri stateless
             .authorizeHttpRequests(auth -> auth
                 // 1. RESOURCES Endpoint
                 .requestMatchers(HttpMethod.GET, "/api/resources/**").hasAnyRole("Admin", "Employee")
@@ -38,13 +38,13 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.PUT, "/api/categories/**").hasRole("Admin")
                 .requestMatchers(HttpMethod.DELETE, "/api/categories/**").hasRole("Admin")
 
-                // 3. EMPLOYEES Endpoint (Doar Admin)
+                // 3. EMPLOYEES Endpoint
                 .requestMatchers("/api/employees/**").hasRole("Admin")
 
-                // 4. LOGS Endpoint (Doar Admin)
+                // 4. LOGS Endpoint
                 .requestMatchers("/api/logs/**").hasRole("Admin")
 
-                // Orice altceva cere autentificare
+                // Other endpoints (if any) require authentication
                 .anyRequest().authenticated()
             )
             .oauth2ResourceServer(oauth2 -> oauth2
@@ -56,7 +56,7 @@ public class SecurityConfig {
 
     @Bean
     public WebSecurityCustomizer webSecurityCustomizer() {
-        // Asta spune Spring Security: "Ignoră complet aceste rute, nici nu te uita la ele"
+        // This tells Spring Security: "Completely ignore these routes, don't even look at them"
         return (web) -> web.ignoring().requestMatchers(
             "/v3/api-docs/**", 
             "/swagger-ui/**", 
@@ -64,7 +64,7 @@ public class SecurityConfig {
         );
     }
 
-    // Convertor pentru a extrage rolurile din Keycloak (realm_access)
+    // Converter to extract roles from Keycloak (realm_access)
     @Bean
     public Converter<Jwt, AbstractAuthenticationToken> jwtAuthenticationConverter() {
         JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
