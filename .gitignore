@@ -31,3 +31,8 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### OS generated files
+.env
+backup.sql
+*.backup
