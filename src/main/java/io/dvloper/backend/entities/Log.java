@@ -21,7 +21,7 @@ public class Log {
 
     @NotNull(message = "Action date is required")
     private LocalDateTime actionDate;
-    
+
     @Column(columnDefinition = "TEXT")
     @NotBlank(message = "Comments cannot be empty")
     @Size(min = 1, max = 1000, message = "Comments must be between 1 and 1000 characters")
@@ -31,36 +31,66 @@ public class Log {
     @JoinColumn(name = "resource_id")
     private Resource resource;
 
-    @ManyToOne
-    @JoinColumn(name = "employee_id")
-    private Employee employee;
-    
-    public Log() {}
-    
-    public Log(String actionType, Resource resource, Employee employee, String comments) {
+    @Column(name = "created_by_keycloak_id")
+    private UUID createdByKeycloakId;
+
+    public Log() {
+    }
+
+    public Log(String actionType, Resource resource, UUID createdByKeycloakId, String comments) {
         this.actionType = actionType;
         this.resource = resource;
-        this.employee = employee;
+        this.createdByKeycloakId = createdByKeycloakId;
         this.comments = comments;
         this.actionDate = LocalDateTime.now();
     }
-    
+
     // Getters and Setters
-    public UUID getId() { return id; }
-    public void setId(UUID id) { this.id = id; }
+    public UUID getId() {
+        return id;
+    }
 
-    public String getActionType() { return actionType; }
-    public void setActionType(String actionType) { this.actionType = actionType; }
+    public void setId(UUID id) {
+        this.id = id;
+    }
 
-    public LocalDateTime getActionDate() { return actionDate; }
-    public void setActionDate(LocalDateTime actionDate) { this.actionDate = actionDate; }
+    public String getActionType() {
+        return actionType;
+    }
 
-    public String getComments() { return comments; }
-    public void setComments(String comments) { this.comments = comments; }
+    public void setActionType(String actionType) {
+        this.actionType = actionType;
+    }
 
-    public Resource getResource() { return resource; }
-    public void setResource(Resource resource) { this.resource = resource; }
+    public LocalDateTime getActionDate() {
+        return actionDate;
+    }
 
-    public Employee getEmployee() { return employee; }
-    public void setEmployee(Employee employee) { this.employee = employee; }
+    public void setActionDate(LocalDateTime actionDate) {
+        this.actionDate = actionDate;
+    }
+
+    public String getComments() {
+        return comments;
+    }
+
+    public void setComments(String comments) {
+        this.comments = comments;
+    }
+
+    public Resource getResource() {
+        return resource;
+    }
+
+    public void setResource(Resource resource) {
+        this.resource = resource;
+    }
+
+    public UUID getCreatedByKeycloakId() {
+        return createdByKeycloakId;
+    }
+
+    public void setCreatedByKeycloakId(UUID createdByKeycloakId) {
+        this.createdByKeycloakId = createdByKeycloakId;
+    }
 }

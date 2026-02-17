@@ -2,6 +2,7 @@ package io.dvloper.backend.controller;
 
 import io.dvloper.backend.entities.Category;
 import io.dvloper.backend.repository.CategoryRepository;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -12,6 +13,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/categories")
+@Tag(name = "Category", description = "Category management")
 public class CategoryController {
 
     private final CategoryRepository repository;
@@ -34,18 +36,24 @@ public class CategoryController {
 
     @PostMapping
     public ResponseEntity<Category> createCategory(@Valid @RequestBody Category category) {
-        // @Valid checks if the incoming Category object meets validation constraints (e.g., @NotBlank)
+        // @Valid checks if the incoming Category object meets validation constraints
+        // (e.g., @NotBlank)
         Category savedCategory = repository.save(category);
         // Return 201 Created
         return ResponseEntity.status(HttpStatus.CREATED).body(savedCategory);
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Category> updateCategory(@PathVariable UUID id, @Valid @RequestBody Category categoryDetails) {
+    public ResponseEntity<Category> updateCategory(@PathVariable UUID id, @RequestBody Category categoryDetails) {
         return repository.findById(id)
                 .map(category -> {
-                    category.setName(categoryDetails.getName());
-                    category.setDescription(categoryDetails.getDescription());
+                    // Update only non-null fields from request
+                    if (categoryDetails.getName() != null) {
+                        category.setName(categoryDetails.getName());
+                    }
+                    if (categoryDetails.getDescription() != null) {
+                        category.setDescription(categoryDetails.getDescription());
+                    }
                     Category updatedCategory = repository.save(category);
                     return ResponseEntity.ok(updatedCategory);
                 })

@@ -18,7 +18,7 @@ public class Resource {
     @NotBlank(message = "Serial number cannot be empty")
     @Size(min = 1, max = 100, message = "Serial number must be between 1 and 100 characters")
     private String serialNumber;
-    
+
     @NotBlank(message = "Name cannot be empty")
     @Size(min = 1, max = 100, message = "Name must be between 1 and 100 characters")
     private String name;
@@ -42,11 +42,8 @@ public class Resource {
     @JoinColumn(name = "category_id")
     private Category category;
 
-    @ManyToOne
-    @JoinColumn(name = "employee_id")
-    private Employee employee;
-
-    public Resource() {}
+    public Resource() {
+    }
 
     public Resource(String name, String serialNumber, Category category) {
         this.name = name;
@@ -56,30 +53,67 @@ public class Resource {
     }
 
     // Getters and Setters
-    public UUID getId() { return id; }
-    public void setId(UUID id) { this.id = id; }
+    public UUID getId() {
+        return id;
+    }
 
-    public void setEmployee(Employee employee) { this.employee = employee; }
-    public Employee getEmployee() { return employee; }
+    public void setId(UUID id) {
+        this.id = id;
+    }
 
-    public void setCategory(Category category) { this.category = category; }
-    public Category getCategory() { return category; }
+    public void setCategory(Category category) {
+        this.category = category;
+    }
 
-    public String getSerialNumber() { return serialNumber; }
-    public void setSerialNumber(String serialNumber) { this.serialNumber = serialNumber; }
+    public Category getCategory() {
+        return category;
+    }
 
-    public String getName() { return name; }
-    public void setName(String name) { this.name = name; }
+    public String getSerialNumber() {
+        return serialNumber;
+    }
 
-    public String getModel() { return model; }
-    public void setModel(String model) { this.model = model; }
+    public void setSerialNumber(String serialNumber) {
+        this.serialNumber = serialNumber;
+    }
 
-    public String getStatus() { return status; }
-    public void setStatus(String status) { this.status = status; }
+    public String getName() {
+        return name;
+    }
 
-    public LocalDate getPurchaseDate() { return purchaseDate; }
-    public void setPurchaseDate(LocalDate purchaseDate) { this.purchaseDate = purchaseDate; }
-    
-    public String getLocation() { return location; }
-    public void setLocation(String location) { this.location = location; }
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public String getModel() {
+        return model;
+    }
+
+    public void setModel(String model) {
+        this.model = model;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
+    }
+
+    public LocalDate getPurchaseDate() {
+        return purchaseDate;
+    }
+
+    public void setPurchaseDate(LocalDate purchaseDate) {
+        this.purchaseDate = purchaseDate;
+    }
+
+    public String getLocation() {
+        return location;
+    }
+
+    public void setLocation(String location) {
+        this.location = location;
+    }
 }

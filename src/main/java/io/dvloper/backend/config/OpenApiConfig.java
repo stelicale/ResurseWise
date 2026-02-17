@@ -13,14 +13,14 @@ public class OpenApiConfig {
     @Bean
     public OpenAPI customOpenAPI() {
         return new OpenAPI()
-            // 1. Definim tipul de securitate (Bearer Token)
+            // Bearer JWT Security Scheme Definition
             .components(new Components()
                 .addSecuritySchemes("bearer-key",
                     new SecurityScheme()
                         .type(SecurityScheme.Type.HTTP)
                         .scheme("bearer")
                         .bearerFormat("JWT")))
-            // 2. Aplicăm securitatea global pentru toate rutele
+            // Apply the security scheme globally to all endpoints
             .addSecurityItem(new SecurityRequirement().addList("bearer-key"));
     }
 }

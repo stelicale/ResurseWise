@@ -2,6 +2,7 @@ package io.dvloper.backend.controller;
 
 import io.dvloper.backend.entities.Resource;
 import io.dvloper.backend.repository.ResourceRepository;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -12,6 +13,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/resources")
+@Tag(name = "Resource", description = "Resource management")
 public class ResourceController {
 
     private final ResourceRepository repository;
@@ -34,24 +36,40 @@ public class ResourceController {
 
     @PostMapping
     public ResponseEntity<Resource> createResource(@Valid @RequestBody Resource resource) {
-        // The incoming JSON must contain nested objects or IDs for category/employee
+        // The incoming JSON must contain nested objects or IDs for category
         // Example: { "name": "Phone", "category": { "id": "..." } }
         Resource savedResource = repository.save(resource);
         return ResponseEntity.status(HttpStatus.CREATED).body(savedResource);
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Resource> updateResource(@PathVariable UUID id, @Valid @RequestBody Resource resourceDetails) {
+    public ResponseEntity<Resource> updateResource(@PathVariable UUID id,
+            @RequestBody Resource resourceDetails) {
         return repository.findById(id)
                 .map(resource -> {
-                    resource.setName(resourceDetails.getName());
-                    resource.setModel(resourceDetails.getModel());
-                    resource.setLocation(resourceDetails.getLocation());
-                    resource.setStatus(resourceDetails.getStatus());
-                    // We can also update relationships
-                    resource.setCategory(resourceDetails.getCategory());
-                    resource.setEmployee(resourceDetails.getEmployee());
-                    
+                    // Update only non-null fields from request
+                    if (resourceDetails.getSerialNumber() != null) {
+                        resource.setSerialNumber(resourceDetails.getSerialNumber());
+                    }
+                    if (resourceDetails.getName() != null) {
+                        resource.setName(resourceDetails.getName());
+                    }
+                    if (resourceDetails.getModel() != null) {
+                        resource.setModel(resourceDetails.getModel());
+                    }
+                    if (resourceDetails.getLocation() != null) {
+                        resource.setLocation(resourceDetails.getLocation());
+                    }
+                    if (resourceDetails.getStatus() != null) {
+                        resource.setStatus(resourceDetails.getStatus());
+                    }
+                    if (resourceDetails.getPurchaseDate() != null) {
+                        resource.setPurchaseDate(resourceDetails.getPurchaseDate());
+                    }
+                    if (resourceDetails.getCategory() != null) {
+                        resource.setCategory(resourceDetails.getCategory());
+                    }
+
                     return ResponseEntity.ok(repository.save(resource));
                 })
                 .orElse(ResponseEntity.notFound().build());

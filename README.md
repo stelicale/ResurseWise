@@ -13,6 +13,7 @@ It serves as the REST API foundation, managing data persistence via PostgreSQL a
 * **Validation:** Jakarta Validation
 * **Build Tool:** Maven (using the included `mvnw` wrapper)
 * **Server:** Apache Tomcat 11.0.15 (Embedded)
+* **Testing:** JUnit 5, Mockito, Spring Boot Test, JaCoCo (Code Coverage)
 
 ## Getting Started
 
@@ -43,6 +44,26 @@ Credentials for Keycloak admin console:
 
 ## Architecture & Features
 
+### Project Structure
+```
+src/main/java/io/dvloper/backend/
+├── aspect/          # AOP for audit logging
+├── config/          # Spring Security & OpenAPI configuration
+├── controller/      # REST API endpoints
+├── dto/             # Data Transfer Objects
+├── entities/        # JPA entities (Category, Resource, Log)
+├── exception/       # Global exception handling
+├── repository/      # JPA repositories
+└── service/         # Business logic (Keycloak integration)
+
+src/test/java/io/dvloper/backend/
+├── controller/      # Controller unit & integration tests
+├── dto/             # DTO validation tests
+├── entities/        # Entity validation tests
+├── exception/       # Exception handler tests
+└── repository/      # Repository integration tests
+```
+
 ### REST API Layer
 The application implements a layered architecture exposing RESTful endpoints for the following resources:
 * **Categories:** Manage resource types.
@@ -62,6 +83,8 @@ A centralized exception handler (`@RestControllerAdvice`) captures errors and re
 ### Accessing Documentation
 * **Swagger UI:** `http://localhost:8080/swagger-ui/index.html`
 * **JSON Definition:** `http://localhost:8080/v3/api-docs`
+
+**Note:** All API endpoints in Swagger are organized with descriptive tags (e.g., "Category", "Resource", "User", "Log") for better readability and navigation.
 
 ## Authentication & Role-Based Access Control
 To interact with protected endpoints via `Swagger` or `cURL`, you must first obtain a `JWT` Access Token.
@@ -118,34 +141,82 @@ Returns a simple message to confirm the server is running, connected to the data
 
 ## Testing
 
+The project implements comprehensive automated testing with **165 test cases** covering multiple layers of the application architecture.
+
+### Test Structure
+
+#### Unit Tests
+* **Entity Tests** (48 tests): Validation rules for Category, Resource, and Log entities
+* **DTO Tests** (31 tests): Data Transfer Object validation (KeycloakUserDTO, CreateKeycloakUserDTO)
+* **Controller Unit Tests** (21 tests): Isolated controller logic with mocked dependencies using `@WebMvcTest`
+* **Exception Handler Tests** (9 tests): Global error handling scenarios
+
+#### Integration Tests  
+* **Controller Integration Tests** (28 tests): Full HTTP request/response cycle testing with real database
+* **Repository Tests** (33 tests): JPA repository operations and custom queries using `@DataJpaTest`
+
+#### Coverage Metrics
+The project uses **JaCoCo Maven Plugin** for code coverage analysis.
+
+**Current Coverage:** ~16% (instruction coverage)
+
+**Coverage Breakdown:**
+- **Entities:** 100% (Category, Resource, Log)
+- **DTOs:** 100% (KeycloakUserDTO, CreateKeycloakUserDTO)
+- **Configuration:** 100% (OpenApiConfig)
+- **Controllers:** Partial coverage (CategoryController, ResourceController, LogController)
+- **Exception Handlers:** Partial coverage (GlobalExceptionHandler)
+- **Aspect:** Minimal coverage (AuditAspect - requires runtime environment)
+- **Service Layer:** Low coverage (KeycloakUserService requires live Keycloak instance)
+- **Security:** Excluded from tests (OAuth2 configuration requires Keycloak)
+
+**Note:** The majority of uncovered code is in the Keycloak integration layer (KeycloakUserService, SecurityConfig) which requires a live identity provider for meaningful testing. This represents ~63% of the uncovered code.
+
+### Running Tests
+
+#### Run All Tests
+```bash
+./mvnw clean test
+```
+
+#### Run Tests with Coverage Report
+```bash
+./mvnw clean test jacoco:report
+```
+
+View the coverage report: `target/site/jacoco/index.html`
+
+#### Run Specific Test Classes
+```bash
+# Entity tests only
+./mvnw test -Dtest=CategoryTest,ResourceTest,LogTest
+
+# Integration tests only
+./mvnw test -Dtest=*IntegrationTest
+
+# Repository tests only
+./mvnw test -Dtest=*RepositoryTest
+```
+
+#### View Coverage Summary (Command Line)
+```bash
+./mvnw clean test jacoco:report && awk -F, '{ instructions += $4 + $5; covered += $5 } END { print "Total Coverage: " covered/instructions*100 "%" }' target/site/jacoco/jacoco.csv
+```
+
 ### Manual Testing
 A Postman collection is included for manual API testing.
 - Location: `docs/resourceManager.postman_collection.json`
 
-### Automated Testing
-The project uses `JUnit 5` and Spring Boot Test for integration and security testing. Code coverage is tracked via the `JaCoCo Maven plugin`.
+### Test Configuration
 
-```bash
-DB_USER=admin DB_PASSWORD=secret ./mvnw clean test && awk -F, '{ instructions += $4 + $5; covered += $5 } END { print "Total Coverage: " covered/instructions*100 "%" }' target/site/jacoco/jacoco.csv
-...
-[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 1.536 s -- in io.dvloper.backend.BackendApplicationTests
-[INFO] 
-[INFO] Results:
-[INFO] 
-[INFO] Tests run: 4, Failures: 0, Errors: 0, Skipped: 0
-[INFO] 
-[INFO] 
-[INFO] --- jacoco:0.8.11:report (report) @ backend ---
-[INFO] Loading execution data file /home/stelian/backend/target/jacoco.exec
-[INFO] Analyzed bundle 'backend' with 13 classes
-[INFO] ------------------------------------------------------------------------
-[INFO] BUILD SUCCESS
-[INFO] ------------------------------------------------------------------------
-[INFO] Total time:  31.663 s
-[INFO] Finished at: 2026-02-10T18:04:48Z
-[INFO] ------------------------------------------------------------------------
-Total Coverage: 37.0811%
-```
+Tests run with an isolated configuration that excludes security and Keycloak dependencies:
+* **Profile:** `test` (activated via `@ActiveProfiles("test")`)
+* **Database:** H2 in-memory database (PostgreSQL used in production)
+* **Security:** Disabled (`@AutoConfigureMockMvc(addFilters = false)`)
+* **OAuth2:** Auto-configuration excluded
+* **Data Seeding:** Disabled (via `@Profile("!test")` on `initDatabase()`)
+
+This ensures tests run quickly without external dependencies while still validating business logic and data persistence.
 
 ### Visualize the database
 
