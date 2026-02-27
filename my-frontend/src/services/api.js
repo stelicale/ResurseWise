@@ -1,74 +1,115 @@
-// Example API service template
-// Replace with your actual API endpoints
+/**
+ * API Service Layer
+ * 
+ * Centralized service for all backend API calls using Axios.
+ * Includes error handling, authentication, and toast notifications.
+ */
+import axios from 'axios';
+import { toast } from 'react-toastify';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8080';
+// Base API URL from environment variables
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8080/api';
 
+/**
+ * Axios instance with default configuration
+ */
+const apiClient = axios.create({
+  baseURL: API_BASE_URL,
+  timeout: 10000, // 10 seconds timeout
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+/**
+ * Request interceptor
+ * Add authentication token to requests if available
+ */
+apiClient.interceptors.request.use(
+  (config) => {
+    // Get token from localStorage (if using JWT authentication)
+    const token = localStorage.getItem('access_token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+/**
+ * Response interceptor
+ * Handle errors globally and show toast notifications
+ */
+apiClient.interceptors.response.use(
+  (response) => {
+    return response;
+  },
+  (error) => {
+    // Handle different error scenarios
+    if (error.response) {
+      // Server responded with error status
+      const { status, data } = error.response;
+      
+      switch (status) {
+        case 401:
+          toast.error('Unauthorized. Please login again.');
+          // Optionally redirect to login
+          // window.location.href = '/login';
+          break;
+        case 403:
+          toast.error('Access forbidden. You do not have permission.');
+          break;
+        case 404:
+          toast.error('Resource not found.');
+          break;
+        case 500:
+          toast.error('Server error. Please try again later.');
+          break;
+        default:
+          toast.error(data?.message || 'An error occurred.');
+      }
+    } else if (error.request) {
+      // Request was made but no response received
+      toast.error('Network error. Please check your connection.');
+    } else {
+      // Something else happened
+      toast.error('An unexpected error occurred.');
+    }
+    
+    return Promise.reject(error);
+  }
+);
+
+/**
+ * Generic API service methods
+ */
 export const apiService = {
   // GET request
   get: async (endpoint) => {
-    try {
-      const response = await fetch(`${API_BASE_URL}${endpoint}`);
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      return await response.json();
-    } catch (error) {
-      throw error;
-    }
+    const response = await apiClient.get(endpoint);
+    return response.data;
   },
 
   // POST request
   post: async (endpoint, data) => {
-    try {
-      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-      });
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      return await response.json();
-    } catch (error) {
-      throw error;
-    }
+    const response = await apiClient.post(endpoint, data);
+    return response.data;
   },
 
   // PUT request
   put: async (endpoint, data) => {
-    try {
-      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-      });
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      return await response.json();
-    } catch (error) {
-      throw error;
-    }
+    const response = await apiClient.put(endpoint, data);
+    return response.data;
   },
 
   // DELETE request
   delete: async (endpoint) => {
-    try {
-      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-        method: 'DELETE',
-      });
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      return await response.json();
-    } catch (error) {
-      throw error;
-    }
+    const response = await apiClient.delete(endpoint);
+    return response.data;
   },
 };
 
-export default apiService;
+export default apiClient;
