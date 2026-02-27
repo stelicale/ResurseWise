@@ -6,6 +6,7 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Profile;
+import java.time.LocalDate;
 import io.dvloper.backend.entities.Category;
 import io.dvloper.backend.entities.Resource;
 import io.dvloper.backend.entities.Log;
@@ -34,7 +35,8 @@ public class BackendApplication {
                 Category laptopCat = new Category("Laptops", "High performance computers");
                 categoryRepo.save(laptopCat);
 
-                Resource macbook = new Resource("MacBook Pro M3", "SN-999-888", laptopCat);
+                Resource macbook = new Resource("MacBook Pro M3", "SN-999-888", "MacBook Pro M3 14-inch",
+                        "Server Room A", LocalDate.of(2024, 1, 15), laptopCat);
                 resourceRepo.save(macbook);
 
                 Log log = new Log("ASSIGN", macbook, adminKeycloakId, "Initial assignment via Seeder");

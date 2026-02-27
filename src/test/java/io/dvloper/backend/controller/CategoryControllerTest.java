@@ -163,8 +163,7 @@ class CategoryControllerTest {
 
     @Test
     void testGetAllCategoriesEmpty() throws Exception {
-        when(repository.findAll()).thenReturn(Arrays.asList());
-
+        // Mockito returns empty list by default for unstubbed collection methods
         mockMvc.perform(get("/api/categories"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", hasSize(0)));

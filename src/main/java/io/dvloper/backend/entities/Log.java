@@ -27,8 +27,8 @@ public class Log {
     @Size(min = 1, max = 1000, message = "Comments must be between 1 and 1000 characters")
     private String comments;
 
-    @ManyToOne
-    @JoinColumn(name = "resource_id")
+    @ManyToOne(optional = true)
+    @JoinColumn(name = "resource_id", nullable = true)
     private Resource resource;
 
     @Column(name = "created_by_keycloak_id")

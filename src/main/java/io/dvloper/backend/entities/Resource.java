@@ -38,18 +38,22 @@ public class Resource {
     @Size(min = 1, max = 100, message = "Location must be between 1 and 100 characters")
     private String location;
 
-    @ManyToOne
-    @JoinColumn(name = "category_id")
+    @ManyToOne(optional = true)
+    @JoinColumn(name = "category_id", nullable = true)
     private Category category;
 
     public Resource() {
     }
 
-    public Resource(String name, String serialNumber, Category category) {
+    public Resource(String name, String serialNumber, String model, String location, LocalDate purchaseDate,
+            Category category) {
         this.name = name;
         this.serialNumber = serialNumber;
+        this.model = model;
+        this.location = location;
+        this.purchaseDate = purchaseDate;
         this.category = category;
-        this.status = "AVAILABLE"; // Default
+        this.status = "AVAILABLE";
     }
 
     // Getters and Setters

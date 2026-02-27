@@ -26,6 +26,7 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
+                .cors(cors -> cors.configure(http)) // Enable CORS with configuration from CorsConfig
                 .csrf(csrf -> csrf.disable()) // for API-uri stateless
                 .authorizeHttpRequests(auth -> auth
                         // 1. RESOURCES Endpoint

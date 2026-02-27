@@ -33,9 +33,8 @@ public class KeycloakUserService {
 
     private final RestTemplate restTemplate = new RestTemplate();
 
-    // Use user's token for CRUD operations (kept for potential future use)
     @SuppressWarnings({ "unchecked", "rawtypes" })
-    public List<KeycloakUserDTO> getAllUsers(String bearerToken) {
+    private List<KeycloakUserDTO> getAllUsers(String bearerToken) {
         String url = String.format("%s/admin/realms/%s/users", keycloakAdminUrl, realm);
 
         HttpHeaders headers = new HttpHeaders();
@@ -63,7 +62,7 @@ public class KeycloakUserService {
     }
 
     @SuppressWarnings({ "unchecked", "rawtypes" })
-    public Optional<KeycloakUserDTO> getUserById(String bearerToken, UUID id) {
+    private Optional<KeycloakUserDTO> getUserById(String bearerToken, UUID id) {
         String url = String.format("%s/admin/realms/%s/users/%s", keycloakAdminUrl, realm, id.toString());
 
         HttpHeaders headers = new HttpHeaders();
@@ -84,7 +83,7 @@ public class KeycloakUserService {
         }
     }
 
-    public KeycloakUserDTO createUser(String bearerToken, CreateKeycloakUserDTO createUserDTO) {
+    private KeycloakUserDTO createUser(String bearerToken, CreateKeycloakUserDTO createUserDTO) {
         String url = String.format("%s/admin/realms/%s/users", keycloakAdminUrl, realm);
 
         HttpHeaders headers = new HttpHeaders();
@@ -138,7 +137,7 @@ public class KeycloakUserService {
         }
     }
 
-    public KeycloakUserDTO updateUser(String bearerToken, UUID id, KeycloakUserDTO userDTO) {
+    private KeycloakUserDTO updateUser(String bearerToken, UUID id, KeycloakUserDTO userDTO) {
         // First, get the existing user from Keycloak
         Optional<KeycloakUserDTO> existingUserOpt = getUserById(bearerToken, id);
 
@@ -181,7 +180,7 @@ public class KeycloakUserService {
         }
     }
 
-    public void deleteUser(String bearerToken, UUID id) {
+    private void deleteUser(String bearerToken, UUID id) {
         String url = String.format("%s/admin/realms/%s/users/%s", keycloakAdminUrl, realm, id.toString());
 
         HttpHeaders headers = new HttpHeaders();
@@ -250,7 +249,7 @@ public class KeycloakUserService {
      * Get realm roles assigned to a user
      */
     @SuppressWarnings({ "unchecked", "rawtypes" })
-    public List<String> getUserRoles(String bearerToken, UUID userId) {
+    private List<String> getUserRoles(String bearerToken, UUID userId) {
         String url = String.format("%s/admin/realms/%s/users/%s/role-mappings/realm",
                 keycloakAdminUrl, realm, userId.toString());
 
@@ -279,7 +278,7 @@ public class KeycloakUserService {
      * Get all available realm roles
      */
     @SuppressWarnings({ "unchecked", "rawtypes" })
-    public List<Map<String, Object>> getAvailableRoles(String bearerToken) {
+    private List<Map<String, Object>> getAvailableRoles(String bearerToken) {
         String url = String.format("%s/admin/realms/%s/roles", keycloakAdminUrl, realm);
 
         HttpHeaders headers = new HttpHeaders();
@@ -302,7 +301,7 @@ public class KeycloakUserService {
     /**
      * Assign realm roles to a user
      */
-    public void assignRolesToUser(String bearerToken, UUID userId, List<String> roleNames) {
+    private void assignRolesToUser(String bearerToken, UUID userId, List<String> roleNames) {
         if (roleNames == null || roleNames.isEmpty()) {
             return;
         }
@@ -338,7 +337,7 @@ public class KeycloakUserService {
     /**
      * Remove all realm roles from a user and assign new ones
      */
-    public void updateUserRoles(String bearerToken, UUID userId, List<String> newRoleNames) {
+    private void updateUserRoles(String bearerToken, UUID userId, List<String> newRoleNames) {
         // Get current roles
         List<String> currentRoles = getUserRoles(bearerToken, userId);
 

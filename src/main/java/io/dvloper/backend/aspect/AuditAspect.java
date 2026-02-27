@@ -28,13 +28,15 @@ public class AuditAspect {
     }
 
     /**
-     * Intercept all controller methods except those in LogController, and create audit logs for POST, PUT, DELETE operations.
+     * Intercept all controller methods except those in LogController, and create
+     * audit logs for POST, PUT, DELETE operations.
      */
     @AfterReturning(pointcut = "execution(* io.dvloper.backend.controller..*(..)) && " +
             "!execution(* io.dvloper.backend.controller.LogController.*(..))", returning = "result")
     public void auditControllerMethods(JoinPoint joinPoint, Object result) {
         try {
-            // Check if the method is annotated with @PostMapping, @PutMapping, or @DeleteMapping
+            // Check if the method is annotated with @PostMapping, @PutMapping, or
+            // @DeleteMapping
             Method method = ((org.aspectj.lang.reflect.MethodSignature) joinPoint.getSignature()).getMethod();
 
             String actionType = null;
@@ -58,7 +60,7 @@ public class AuditAspect {
                 return;
             }
 
-            // Derermine resource type based on controller class name
+            // Determine resource type based on controller class name
             String resourceType = determineResourceType(joinPoint);
             Resource affectedResource = extractResource(result);
             String comments = buildComment(actionType, resourceType, joinPoint);
@@ -125,7 +127,8 @@ public class AuditAspect {
         String methodName = joinPoint.getSignature().getName();
         comment.append(" (").append(methodName).append(")");
 
-        // Optionally, include the ID of the affected resource if available in method arguments
+        // Optionally, include the ID of the affected resource if available in method
+        // arguments
         Object[] args = joinPoint.getArgs();
         if (args.length > 0 && args[0] instanceof UUID) {
             comment.append(" - ID: ").append(args[0]);

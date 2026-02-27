@@ -33,7 +33,8 @@ class ResourceTest {
     @Test
     void testParameterizedConstructor() {
         Category category = new Category("Laptops", "High performance");
-        Resource resource = new Resource("MacBook Pro", "SN-123", category);
+        Resource resource = new Resource("MacBook Pro", "SN-123", "MacBook Pro M3", "Office A",
+                LocalDate.of(2024, 1, 15), category);
 
         assertNotNull(resource);
         assertEquals("MacBook Pro", resource.getName());
@@ -71,10 +72,7 @@ class ResourceTest {
     @Test
     void testValidResource() {
         Category category = new Category("Laptops", "High performance");
-        Resource resource = new Resource("MacBook Pro", "SN-123", category);
-        resource.setModel("M3 Pro");
-        resource.setPurchaseDate(LocalDate.now());
-        resource.setLocation("Office");
+        Resource resource = new Resource("MacBook Pro", "SN-123", "M3 Pro", "Office", LocalDate.now(), category);
 
         Set<ConstraintViolation<Resource>> violations = validator.validate(resource);
         assertTrue(violations.isEmpty(), "Valid resource should have no violations");
@@ -203,7 +201,8 @@ class ResourceTest {
     @Test
     void testDefaultStatusInConstructor() {
         Category category = new Category("Laptops", "Test");
-        Resource resource = new Resource("MacBook", "SN-123", category);
+        Resource resource = new Resource("MacBook", "SN-123", "MacBook Pro M3", "Office A", LocalDate.of(2024, 1, 15),
+                category);
 
         assertEquals("AVAILABLE", resource.getStatus());
     }
@@ -213,7 +212,8 @@ class ResourceTest {
         Category category1 = new Category("Laptops", "Computers");
         Category category2 = new Category("Monitors", "Displays");
 
-        Resource resource = new Resource("MacBook", "SN-123", category1);
+        Resource resource = new Resource("MacBook", "SN-123", "MacBook Pro M3", "Office A", LocalDate.of(2024, 1, 15),
+                category1);
         assertEquals(category1, resource.getCategory());
 
         resource.setCategory(category2);

@@ -6,6 +6,7 @@ import jakarta.validation.Validation;
 import jakarta.validation.Validator;
 import jakarta.validation.ValidatorFactory;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Set;
 import java.util.UUID;
@@ -33,7 +34,8 @@ class LogTest {
     @Test
     void testParameterizedConstructor() {
         Category category = new Category("Laptops", "Test");
-        Resource resource = new Resource("MacBook", "SN-123", category);
+        Resource resource = new Resource("MacBook", "SN-123", "MacBook Pro M3", "Office A", LocalDate.of(2024, 1, 15),
+                category);
         UUID userId = UUID.randomUUID();
 
         LocalDateTime beforeCreation = LocalDateTime.now().minusSeconds(1);
@@ -58,7 +60,7 @@ class LogTest {
         LocalDateTime date = LocalDateTime.of(2024, 1, 15, 10, 30);
 
         Category category = new Category("Test", "Test Desc");
-        Resource resource = new Resource("Test", "SN-999", category);
+        Resource resource = new Resource("Test", "SN-999", "Model X", "Office A", LocalDate.of(2024, 1, 15), category);
 
         log.setId(testId);
         log.setActionType("UPDATE");
@@ -78,7 +80,8 @@ class LogTest {
     @Test
     void testValidLog() {
         Category category = new Category("Laptops", "Test");
-        Resource resource = new Resource("MacBook", "SN-123", category);
+        Resource resource = new Resource("MacBook", "SN-123", "MacBook Pro M3", "Office A", LocalDate.of(2024, 1, 15),
+                category);
         UUID userId = UUID.randomUUID();
 
         Log log = new Log("ASSIGN", resource, userId, "Assigned to user");
@@ -188,8 +191,10 @@ class LogTest {
         Category category1 = new Category("Laptops", "Computers");
         Category category2 = new Category("Monitors", "Displays");
 
-        Resource resource1 = new Resource("MacBook", "SN-123", category1);
-        Resource resource2 = new Resource("Dell Monitor", "SN-456", category2);
+        Resource resource1 = new Resource("MacBook", "SN-123", "MacBook Pro M3", "Office A", LocalDate.of(2024, 1, 15),
+                category1);
+        Resource resource2 = new Resource("Dell Monitor", "SN-456", "UltraSharp 27", "Office B",
+                LocalDate.of(2024, 3, 10), category2);
         UUID userId = UUID.randomUUID();
 
         Log log = new Log("ASSIGN", resource1, userId, "Test");
@@ -202,7 +207,8 @@ class LogTest {
     @Test
     void testValidBoundaryValues() {
         Category category = new Category("Test", "Test Description");
-        Resource resource = new Resource("MacBook", "SN-123", category);
+        Resource resource = new Resource("MacBook", "SN-123", "MacBook Pro M3", "Office A", LocalDate.of(2024, 1, 15),
+                category);
         UUID userId = UUID.randomUUID();
 
         Log log = new Log();
@@ -225,7 +231,8 @@ class LogTest {
     @Test
     void testConstructorSetsActionDate() {
         Category category = new Category("Test", "Test Description");
-        Resource resource = new Resource("MacBook", "SN-123", category);
+        Resource resource = new Resource("MacBook", "SN-123", "MacBook Pro M3", "Office A", LocalDate.of(2024, 1, 15),
+                category);
         UUID userId = UUID.randomUUID();
 
         Log log = new Log("ASSIGN", resource, userId, "Test comment");
@@ -236,7 +243,8 @@ class LogTest {
     @Test
     void testMultipleActionTypes() {
         Category category = new Category("Test", "Test Description");
-        Resource resource = new Resource("MacBook", "SN-123", category);
+        Resource resource = new Resource("MacBook", "SN-123", "MacBook Pro M3", "Office A", LocalDate.of(2024, 1, 15),
+                category);
         UUID userId = UUID.randomUUID();
 
         Log log1 = new Log("ASSIGN", resource, userId, "Assigned");
