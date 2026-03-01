@@ -6,6 +6,7 @@ React frontend for the dvloper.io resource management application. Communicates 
 
 - React 19.2.4
 - Axios 1.x - HTTP client
+- keycloak-js - OpenID Connect authentication
 - react-toastify - Toast notifications
 - ESLint + Prettier - Linting and formatting
 
@@ -30,6 +31,10 @@ Create a `.env` file in `my-frontend/`:
 
 ```env
 REACT_APP_API_URL=http://localhost:8080/api
+REACT_APP_KEYCLOAK_URL=http://localhost:8081
+REACT_APP_KEYCLOAK_REALM=ITResurceManager
+REACT_APP_KEYCLOAK_CLIENT_ID=spring-backend
+REACT_APP_KEYCLOAK_PROXY_PREFIX=/keycloak
 BROWSER=none
 ```
 
@@ -37,7 +42,7 @@ The `.env` file is listed in `.gitignore` and should never be committed.
 
 ## API Integration
 
-All API calls go through `src/services/api.js`, which creates an Axios instance using the base URL from `REACT_APP_API_URL`. A request interceptor automatically attaches the JWT token from `localStorage` to every request. A response interceptor catches errors globally and shows toast notifications.
+All API calls go through `src/services/api.js`, which creates an Axios instance using the base URL from `REACT_APP_API_URL`. A request interceptor refreshes the Keycloak token (when close to expiration) and automatically attaches `Authorization: Bearer <token>`. A response interceptor catches errors globally and shows toast notifications.
 
 ### Available Services
 
@@ -71,13 +76,34 @@ await categoryService.deleteCategory(id);
 
 ### Authentication
 
-After obtaining a JWT token from Keycloak, store it in localStorage:
+Authentication uses direct token requests to Keycloak (Resource Owner Password Credentials flow — no browser redirect):
 
-```javascript
-localStorage.setItem('access_token', 'your-jwt-token');
+- The login form sends `username` and `password` to the Keycloak token endpoint through a dev proxy (`/keycloak`)
+- On successful login, `access_token` and `refresh_token` are stored **in memory only** (JavaScript module-level variables) — never written to `localStorage` or `sessionStorage`
+- `api.js` automatically refreshes the token before every protected API call if it expires within 30 seconds
+- `AuthContext` also runs a background interval every 25 seconds to proactively refresh the token
+- If the refresh token itself expires, the user is automatically logged out
+- **Page refresh = logged out** (by design — tokens are not persisted to disk)
+
+Required Keycloak client settings:
+
+- Direct Access Grants must be enabled on client `spring-backend`
+- `Web Origins`: `http://localhost:3000`
+
+Role-based UI:
+
+- `Run All CRUD Tests` is available for all authenticated users
+- Results show `⛔ FORBIDDEN` for operations that require the `Admin` realm role
+
+Quick setup:
+
+```bash
+cp .env.example .env
+npm install
+npm start
 ```
 
-All subsequent API calls will include it automatically via the request interceptor.
+Login is done directly in the app using the Username/Password fields and `Login` button.
 
 ### Error Handling
 
@@ -95,30 +121,16 @@ Errors are handled globally in `api.js`. The user sees a toast notification for 
 
 The backend (`CorsConfig.java`) is configured to accept requests from `http://localhost:3000` with all HTTP methods and the `Authorization` header.
 
-## Backend API Endpoints
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/categories` | Get all categories |
-| POST | `/api/categories` | Create category |
-| PUT | `/api/categories/{id}` | Update category |
-| DELETE | `/api/categories/{id}` | Delete category |
-| GET | `/api/resources` | Get all resources |
-| POST | `/api/resources` | Create resource |
-| PUT | `/api/resources/{id}` | Update resource |
-| DELETE | `/api/resources/{id}` | Delete resource |
-| GET | `/api/users` | Get all users |
-| POST | `/api/users` | Create user |
-| PUT | `/api/users/{id}` | Update user |
-| DELETE | `/api/users/{id}` | Delete user |
-| GET | `/api/users/roles/available` | Get available roles |
-| GET | `/api/logs?timeAgo=24h` | Get audit logs |
-
 ## Testing the API
 
 The app includes a `ConnectionTest` component that runs automated tests against all endpoints. It creates test data, verifies each operation (GET, POST, PUT, DELETE), and cleans up after itself.
 
-To use it, navigate to the Connection Test page and click "Run All Tests". With a valid JWT token stored in localStorage, all tests should pass.
+To use it:
+
+1. Start frontend and backend
+2. Click `Login` and authenticate with your Keycloak credentials
+3. Click `Run All CRUD Tests`
+4. Results show `✅ SUCCESS` for permitted operations and `⛔ FORBIDDEN` for operations outside your role
 
 ## Available Scripts
 

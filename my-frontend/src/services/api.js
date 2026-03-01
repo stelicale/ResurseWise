@@ -6,6 +6,7 @@
  */
 import axios from 'axios';
 import { toast } from 'react-toastify';
+import { refreshToken } from '../auth/keycloak';
 
 // Base API URL from environment variables
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8080/api';
@@ -26,9 +27,8 @@ const apiClient = axios.create({
  * Add authentication token to requests if available
  */
 apiClient.interceptors.request.use(
-  (config) => {
-    // Get token from localStorage (if using JWT authentication)
-    const token = localStorage.getItem('access_token');
+  async (config) => {
+    const token = await refreshToken(30);
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -55,18 +55,18 @@ apiClient.interceptors.response.use(
       
       switch (status) {
         case 401:
-          toast.error('Unauthorized. Please login again.');
+          toast.error(data?.message || 'Unauthorized. Please login again.');
           // Optionally redirect to login
           // window.location.href = '/login';
           break;
         case 403:
-          toast.error('Access forbidden. You do not have permission.');
+          toast.error(data?.message || 'Access forbidden. You do not have permission.');
           break;
         case 404:
-          toast.error('Resource not found.');
+          toast.error(data?.message || 'Resource not found.');
           break;
         case 500:
-          toast.error('Server error. Please try again later.');
+          toast.error(data?.message || 'Server error. Please try again later.');
           break;
         default:
           toast.error(data?.message || 'An error occurred.');
