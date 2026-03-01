@@ -4,6 +4,7 @@ import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import ConnectionTest from './components/ConnectionTest';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { DataProvider } from './context/DataContext';
 import './App.css';
 
 const AppContent = () => {
@@ -149,10 +150,21 @@ const AppContent = () => {
   );
 };
 
+// DataWrapper reads auth state and passes it to DataProvider,
+// keeping DataProvider inside AuthProvider so useAuth() works.
+const DataWrapper = () => {
+  const { isAuthenticated } = useAuth();
+  return (
+    <DataProvider isAuthenticated={isAuthenticated}>
+      <AppContent />
+    </DataProvider>
+  );
+};
+
 function App() {
   return (
     <AuthProvider>
-      <AppContent />
+      <DataWrapper />
     </AuthProvider>
   );
 }

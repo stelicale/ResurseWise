@@ -105,6 +105,50 @@ npm start
 
 Login is done directly in the app using the Username/Password fields and `Login` button.
 
+### State Management
+
+The app uses React Context API for all shared state. There are two context providers, both defined in `src/context/`:
+
+| Context | File | Purpose |
+|---------|------|---------|
+| `AuthContext` | `AuthContext.js` | Authentication state — `isAuthenticated`, `token`, `roles`, `username`, `isAdmin`, `login`, `logout` |
+| `DataContext` | `DataContext.js` | Application data cache — categories, resources, users, logs with TTL-based caching |
+
+**Provider tree** (inside `App.js`):
+
+```
+AuthProvider
+  └─ DataProvider (receives isAuthenticated via DataWrapper)
+       └─ AppContent / ConnectionTest / ...
+```
+
+`DataWrapper` is a small internal component that reads `isAuthenticated` from `AuthContext` and passes it down to `DataProvider`, ensuring the data cache is reset automatically on logout.
+
+**DataContext caching:**
+
+- Cache TTL: **2 minutes** per entity
+- Cache is checked before every fetch — if data is fresh, no network request is made
+- After any mutation (CREATE / UPDATE / DELETE), call `invalidate('categories')` or `invalidate('resources')` etc. to force a fresh fetch on the next read
+- On logout, all cached data is cleared via `RESET` action
+
+**Usage in components:**
+
+```js
+import { useData } from '../context/DataContext';
+
+const { fetchCategories, fetchResources, invalidate } = useData();
+
+// Reads from cache if fresh, otherwise fetches from API
+const categories = await fetchCategories();
+
+// Force-bypass cache
+const categories = await fetchCategories({ force: true });
+
+// Invalidate after mutation
+await categoryService.createCategory(data);
+invalidate('categories');
+```
+
 ### Error Handling
 
 Errors are handled globally in `api.js`. The user sees a toast notification for every failure:

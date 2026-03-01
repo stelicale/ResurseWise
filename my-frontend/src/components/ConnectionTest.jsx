@@ -4,6 +4,7 @@ import { resourceService } from '../services/resourceService';
 import { userService } from '../services/userService';
 import { logService } from '../services/logService';
 import { getToken } from '../auth/keycloak';
+import { useData } from '../context/DataContext';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8080/api';
 const BACKEND_BASE_URL = API_BASE_URL.replace(/\/api\/?$/, '');
@@ -17,6 +18,7 @@ const statusForError = (status, successMessage) => {
 const ConnectionTest = ({ isAuthenticated }) => {
   const [testResult, setTestResult] = useState(null);
   const [loading, setLoading] = useState(false);
+  const { fetchCategories, fetchResources, invalidate } = useData();
 
   const runAllTests = async () => {
     if (!isAuthenticated) {
@@ -78,13 +80,13 @@ const ConnectionTest = ({ isAuthenticated }) => {
       });
     }
 
-    // Test 3: Categories API (GET)
+    // Test 3: Categories API (GET) — uses DataContext cache (TTL 2 min)
     try {
-      const data = await categoryService.getAllCategories();
+      const data = await fetchCategories();
       results.tests.push({
         name: 'Categories API (GET)',
         status: '✅ SUCCESS',
-        detail: `Retrieved ${data.length} categories`,
+        detail: `Retrieved ${data.length} categories (cached)`,
         success: true
       });
     } catch (error) {
@@ -93,13 +95,13 @@ const ConnectionTest = ({ isAuthenticated }) => {
       results.tests.push({ name: 'Categories API (GET)', status: r.label, detail: r.detail, success: r.success });
     }
 
-    // Test 4: Resources API (GET)
+    // Test 4: Resources API (GET) — uses DataContext cache (TTL 2 min)
     try {
-      const data = await resourceService.getAllResources();
+      const data = await fetchResources();
       results.tests.push({
         name: 'Resources API (GET)',
         status: '✅ SUCCESS',
-        detail: `Retrieved ${data.length} resources`,
+        detail: `Retrieved ${data.length} resources (cached)`,
         success: true
       });
     } catch (error) {
@@ -116,6 +118,7 @@ const ConnectionTest = ({ isAuthenticated }) => {
       };
       const created = await categoryService.createCategory(newCategory);
       testCategoryId = created.id;
+      invalidate('categories');
       results.tests.push({
         name: 'CREATE Category',
         status: '✅ SUCCESS',
@@ -150,6 +153,7 @@ const ConnectionTest = ({ isAuthenticated }) => {
       try {
         const updatedData = { name: 'Updated Test Category', description: 'Updated description' };
         const updated = await categoryService.updateCategory(testCategoryId, updatedData);
+        invalidate('categories');
         results.tests.push({
           name: 'UPDATE Category',
           status: '✅ SUCCESS',
@@ -165,7 +169,7 @@ const ConnectionTest = ({ isAuthenticated }) => {
 
     // Test 8: CREATE Resource
     try {
-      const categories = await categoryService.getAllCategories();
+      const categories = await fetchCategories();
       const categoryForResource = testCategoryId ? { id: testCategoryId } : categories[0];
       const newResource = {
         name: 'Test Resource ' + Date.now(),
@@ -178,6 +182,7 @@ const ConnectionTest = ({ isAuthenticated }) => {
       };
       const created = await resourceService.createResource(newResource);
       testResourceId = created.id;
+      invalidate('resources');
       results.tests.push({
         name: 'CREATE Resource',
         status: '✅ SUCCESS',
@@ -193,7 +198,7 @@ const ConnectionTest = ({ isAuthenticated }) => {
     // Test 9: UPDATE Resource (if created)
     if (testResourceId) {
       try {
-        const categories = await categoryService.getAllCategories();
+        const categories = await fetchCategories();
         const updatedData = {
           name: 'Updated Test Resource',
           model: 'Updated Model',
@@ -204,6 +209,7 @@ const ConnectionTest = ({ isAuthenticated }) => {
           category: categories[0]
         };
         const updated = await resourceService.updateResource(testResourceId, updatedData);
+        invalidate('resources');
         results.tests.push({
           name: 'UPDATE Resource',
           status: '✅ SUCCESS',
@@ -221,6 +227,7 @@ const ConnectionTest = ({ isAuthenticated }) => {
     if (testResourceId) {
       try {
         await resourceService.deleteResource(testResourceId);
+        invalidate('resources');
         results.tests.push({
           name: 'DELETE Resource',
           status: '✅ SUCCESS',
@@ -230,6 +237,7 @@ const ConnectionTest = ({ isAuthenticated }) => {
       } catch (error) {
         const s = error.response?.status || 'Unknown';
         if (s === 500) {
+          invalidate('resources');
           results.tests.push({
             name: 'DELETE Resource',
             status: '⚠️ WARNING',
@@ -247,6 +255,7 @@ const ConnectionTest = ({ isAuthenticated }) => {
     if (testCategoryId) {
       try {
         await categoryService.deleteCategory(testCategoryId);
+        invalidate('categories');
         results.tests.push({
           name: 'DELETE Category',
           status: '✅ SUCCESS',
