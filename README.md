@@ -1,93 +1,261 @@
 # Frontend
 
+A React single-page application for tracking company assets, managing users, and reviewing audit logs.
+Communicates with a Spring Boot REST API secured by Keycloak.
+
+## Tech Stack
+
+- React 19.2.4 (Create React App)
+- Axios 1.x - HTTP client with token interceptor
+- keycloak-js - OpenID Connect authentication (Resource Owner Password Credentials flow)
+- react-toastify - Toast notifications
+- Jest + React Testing Library - unit and integration tests
+- ESLint + Prettier - linting and formatting
+
+## Prerequisites
+
+- Node.js 18 or higher
+- npm 9 or higher
+- Backend API running on port 8080 (see `backend/README.md`)
+- Keycloak running on port 8081
 
 
-## Getting started
+The `.env` file must never be committed - it is listed in `.gitignore`.
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+## Running
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+Start the development server:
 
-## Add your files
+```bash
+npm start
+```
 
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/ee/gitlab-basics/add-file.html#add-a-file-using-the-command-line) or push an existing Git repository with the following command:
+The app is served at http://localhost:3000. API calls are proxied to http://localhost:8080 via `src/setupProxy.js`.
+
+Build for production:
+
+```bash
+npm run build
+```
+
+## Available Scripts
+
+```bash
+npm start          # Start development server
+npm run build      # Build for production (output: build/)
+npm test           # Run tests in watch mode
+npm run lint       # Check for lint errors
+npm run format     # Format code with Prettier
+```
+
+---
+
+## Architecture
+
+### Component Structure
 
 ```
-cd existing_repo
-git remote add origin https://gitlab.intranet.dvloper.io/core-competencies-2026/stelian-pungaru/frontend.git
-git branch -M main
-git push -uf origin main
+src/
+  App.js                   # Root layout, header, tab-based routing
+  App.css                  # Global styles and responsive media queries
+  auth/
+    keycloak.js            # Keycloak adapter initialisation
+  context/
+    AuthContext.js         # login, logout, isAuthenticated, isAdmin, username
+    DataContext.js         # In-memory TTL cache for resources and categories
+  components/
+    DataTable.jsx          # Reusable table with filtering, sorting, pagination
+    ResourcesPage.jsx      # Resources tab (uses DataTable)
+    CategoriesPage.jsx     # Categories tab (uses DataTable)
+    UsersPage.jsx          # Users tab - admin only (uses DataTable)
+    LogsPage.jsx           # Audit logs tab - admin only (uses DataTable)
+    LandingPage.jsx        # Home screen shown before login
+    Modal.jsx              # Generic modal dialog with form helpers
+    ConnectionTest.jsx     # Automated API test panel
+  services/
+    api.js                 # Axios instance with Bearer token interceptor
+    resourceService.js     # CRUD for resources
+    categoryService.js     # CRUD for categories
+    userService.js         # User and role management via Keycloak REST
+    logService.js          # Read-only audit log retrieval
+    index.js               # Re-exports all services
 ```
 
-## Integrate with your tools
+### Authentication
 
-- [ ] [Set up project integrations](https://gitlab.intranet.dvloper.io/core-competencies-2026/stelian-pungaru/frontend/-/settings/integrations)
+Login uses the Resource Owner Password Credentials flow - no browser redirect is required.
+The form sends `username` and `password` to the Keycloak token endpoint through a dev proxy (`/keycloak`).
 
-## Collaborate with your team
+- `access_token` and `refresh_token` are stored in memory only (module-level variables) - never in `localStorage` or `sessionStorage`.
+- `api.js` refreshes the token automatically before every protected request if it expires within 30 seconds.
+- `AuthContext` runs a background interval every 25 seconds to proactively refresh the token.
+- If the refresh token itself expires the user is automatically logged out.
+- Page refresh = logged out by design - tokens are not persisted to disk.
 
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Set auto-merge](https://docs.gitlab.com/ee/user/project/merge_requests/merge_when_pipeline_succeeds.html)
+Required Keycloak client settings:
+- Direct Access Grants must be enabled on client `spring-backend`.
+- `Web Origins`: `http://localhost:3000`
 
-## Test and Deploy
+### State Management
 
-Use the built-in continuous integration in GitLab.
+The app uses React Context API. Two providers are defined in `src/context/`:
 
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/index.html)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
+| Context | File | Purpose |
+|---------|------|---------|
+| `AuthContext` | `AuthContext.js` | Authentication state - `isAuthenticated`, `token`, `roles`, `username`, `isAdmin`, `login`, `logout` |
+| `DataContext` | `DataContext.js` | Application data cache - categories, resources, users, logs with TTL-based caching |
 
-***
+Provider tree (inside `App.js`):
 
-# Editing this README
+```
+AuthProvider
+  DataProvider (receives isAuthenticated via DataWrapper)
+    AppContent
+```
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
+`DataWrapper` reads `isAuthenticated` from `AuthContext` and passes it to `DataProvider`, ensuring the
+data cache is cleared on logout.
 
-## Suggestions for a good README
+DataContext caching:
+- Cache TTL: 2 minutes per entity type.
+- Cache is checked before every fetch - if data is fresh, no network request is made.
+- After any mutation call `invalidate('categories')` or `invalidate('resources')` to force a fresh fetch.
+- On logout all cached data is cleared via a `RESET` action.
 
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
+```js
+import { useData } from '../context/DataContext';
 
-## Name
-Choose a self-explaining name for your project.
+const { fetchCategories, invalidate } = useData();
 
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
+const categories = await fetchCategories();     // reads cache if fresh
+const categories = await fetchCategories(true); // force-bypass cache
+await categoryService.createCategory(data);
+invalidate('categories');                       // flush cache after write
+```
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
+### API Integration
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+All API calls go through `src/services/api.js`, which creates an Axios instance pointed at `REACT_APP_API_URL`.
+A request interceptor attaches `Authorization: Bearer <token>`. A response interceptor handles errors globally.
 
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+| Service | Endpoints |
+|---------|-----------|
+| `categoryService` | GET all, GET by ID, POST, PUT, DELETE |
+| `resourceService` | GET all, GET by ID, POST, PUT, DELETE |
+| `userService` | GET all, GET by ID, GET roles, POST, PUT, DELETE |
+| `logService` | GET (with `timeAgo` param, e.g. `1h`, `7d`, `30d`) |
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
+Usage example:
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+```js
+import { categoryService } from './services';
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+const categories = await categoryService.getAllCategories();
+const created    = await categoryService.createCategory({ name: 'Electronics', description: '...' });
+await categoryService.updateCategory(id, { name: 'Updated Name' });
+await categoryService.deleteCategory(id);
+```
 
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
+### Error Handling
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
+Errors are caught globally in `api.js`. The user sees a toast for every failure:
 
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
+| Status | Toast message |
+|--------|---------------|
+| 401 | Unauthorized. Please login again. |
+| 403 | Access forbidden. |
+| 404 | Resource not found. |
+| 500 | Server error. Please try again later. |
+| Network error | Network error. Check your connection. |
 
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+### CORS
 
-## License
-For open source projects, say how it is licensed.
+The backend (`CorsConfig.java`) accepts requests from `http://localhost:3000` with all HTTP methods
+and the `Authorization` header.
 
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+---
+
+## DataTable Component
+
+`src/components/DataTable.jsx` is a fully self-contained, reusable table component used on every data
+page. It accepts the following props:
+
+| Prop              | Type    | Default       | Description                                                  |
+|-------------------|---------|---------------|--------------------------------------------------------------|
+| `columns`         | Array   | `[]`          | Column definitions: `{ key, label, sortable?, render?, width? }` |
+| `data`            | Array   | `[]`          | Full dataset passed from the parent page                     |
+| `filters`         | Array   | `[]`          | Filter definitions: `{ key, label, type, options? }`         |
+| `actions`         | Object  | `{}`          | Handlers: `{ onAdd?, onEdit?, onDelete?, addLabel? }`        |
+| `loading`         | Boolean | `false`       | Displays a loading state while data is fetched               |
+| `defaultPageSize` | Number  | `10`          | Initial rows per page                                        |
+| `pageSizeOptions` | Array   | `[5,10,25,50]`| Page size choices shown in the footer                        |
+| `title`           | String  | `''`          | Heading displayed above the table                            |
+| `isAdmin`         | Boolean | `false`       | Shows or hides add / edit / delete actions                   |
+| `emptyMessage`    | String  | `'No records found.'` | Text shown when there are no rows               |
+
+### Filtering
+
+Filter state is kept in a single `useState` object keyed by column name, e.g.
+`{ name: "dell", status: "AVAILABLE" }`. Two filter types are supported:
+
+- `text` - case-insensitive substring match against the column value.
+- `select` - exact string equality match, rendered as a dropdown.
+
+Multiple filters are applied in sequence, each narrowing the previous result set. The filtered array
+is computed with `useMemo` and only recalculates when `data`, `filterValues`, or the `filters` prop
+changes. Applying any filter resets the page counter to 1. A "Clear filters" button appears whenever
+at least one filter has a value.
+
+### Sorting
+
+Clicking a sortable column header toggles between ascending and descending order. An inactive sortable
+column shows a neutral indicator; the active column shows an up or down arrow. Sorting uses
+`String.prototype.localeCompare` with `{ numeric: true }` so values like "Item 2" sort before
+"Item 10". Sorting is also computed via `useMemo`, operating on the already-filtered dataset.
+
+### Pagination
+
+Total pages are derived from the filtered and sorted row count divided by the selected page size.
+The footer provides:
+
+- Previous and Next buttons.
+- Numbered page buttons with ellipsis collapse for large page counts.
+- A "Rows per page" selector driven by `pageSizeOptions`.
+
+Changing page size or applying a filter resets the counter to 1 to prevent landing on an empty page.
+The current page is clamped to `totalPages` so stale page state from a previous filter never causes
+an out-of-range slice.
+
+### Data flow
+
+```
+data (all rows, passed as prop)
+  -> filtered  (useMemo: applies all active filterValues in sequence)
+  -> sorted    (useMemo: applies sortKey and sortDir)
+  -> paginated (slice based on current page and pageSize)
+  -> rendered as <TableRow> elements
+```
+
+### Responsive layout
+
+- `overflowX: auto` on the table wrapper enables horizontal scrolling on narrow viewports.
+- The filter row, header, and footer use `flexWrap: wrap` so controls stack when horizontal space
+  is limited.
+- The application header adapts at 600 px via CSS media queries in `App.css`: navigation tabs move
+  to a second row with horizontal scroll, and login inputs shrink to fit phone viewports.
+
+---
+
+## Testing
+
+The project uses Jest and React Testing Library (bundled with Create React App).
+
+Run tests in watch mode:
+
+```bash
+cd frontend/my-frontend
+npm test
+```
+
+The existing test (`src/App.test.js`) verifies that the root component mounts without crashing.
+New tests follow the same `@testing-library/react` pattern in the same directory.

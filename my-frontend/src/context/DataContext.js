@@ -7,7 +7,7 @@
  *
  * Cached entities: categories, resources, users, logs
  */
-import React, { createContext, useCallback, useContext, useEffect, useReducer } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useReducer, useRef } from 'react';
 import { categoryService } from '../services/categoryService';
 import { resourceService } from '../services/resourceService';
 import { userService } from '../services/userService';
@@ -99,6 +99,14 @@ export const DataProvider = ({ children, isAuthenticated }) => {
     }
   }, [isAuthenticated]);
 
+  // Keep a ref to the latest state so fetchEntity doesn't need state as a dependency
+  // (avoids the re-render loop: dispatch → state change → new fetchEntity → new load → dispatch…)
+  const stateRef = useRef(state);
+  useEffect(() => { stateRef.current = state; }, [state]);
+
+  // Track in-flight requests to prevent duplicate concurrent fetches
+  const inFlightRef = useRef({});
+
   /**
    * Generic fetch with caching.
    * Skips network request if cached data is fresh (within TTL).
@@ -107,7 +115,7 @@ export const DataProvider = ({ children, isAuthenticated }) => {
    * @param {boolean} force - bypass cache and always refetch
    */
   const fetchEntity = useCallback(async (entity, fetcher, force = false) => {
-    const slice = state[entity];
+    const slice = stateRef.current[entity];
 
     // Return cached data if still fresh and not forced
     if (!force && slice.data !== null && slice.fetchedAt !== null) {
@@ -117,17 +125,29 @@ export const DataProvider = ({ children, isAuthenticated }) => {
       }
     }
 
-    dispatch({ type: ACTIONS.FETCH_START, entity });
-    try {
-      const data = await fetcher();
-      dispatch({ type: ACTIONS.FETCH_SUCCESS, entity, payload: data });
-      return data;
-    } catch (error) {
-      const message = error.response?.data?.message || error.message || 'Fetch failed';
-      dispatch({ type: ACTIONS.FETCH_ERROR, entity, error: message });
-      throw error;
+    // If a request is already in flight for this entity, wait for it instead of firing again
+    if (inFlightRef.current[entity]) {
+      return inFlightRef.current[entity];
     }
-  }, [state]);
+
+    dispatch({ type: ACTIONS.FETCH_START, entity });
+    const promise = fetcher()
+      .then((data) => {
+        dispatch({ type: ACTIONS.FETCH_SUCCESS, entity, payload: data });
+        return data;
+      })
+      .catch((error) => {
+        const message = error.response?.data?.message || error.message || 'Fetch failed';
+        dispatch({ type: ACTIONS.FETCH_ERROR, entity, error: message });
+        throw error;
+      })
+      .finally(() => {
+        delete inFlightRef.current[entity];
+      });
+
+    inFlightRef.current[entity] = promise;
+    return promise;
+  }, []); // stable — reads state via ref, no state dependency
 
   /**
    * Invalidate cache for a specific entity (e.g., after a mutation).
