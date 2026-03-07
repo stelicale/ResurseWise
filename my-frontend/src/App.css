@@ -5,6 +5,79 @@
   color: #f1f5f9;
 }
 
+/* ── Navbar link / brand styles ─────────────────────────────── */
+.nav-brand {
+  font-weight: 700;
+  font-size: 16px;
+  color: #f1f5f9;
+  white-space: nowrap;
+  letter-spacing: -0.02em;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.nav-tab {
+  padding: 6px 14px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 400;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+}
+
+.nav-tab:hover,
+.nav-tab.nav-tab-active {
+  background-color: #1e293b;
+  color: #f1f5f9;
+  font-weight: 600;
+}
+
+/* Hamburger button – hidden on desktop, shown on mobile via media query */
+.nav-hamburger {
+  display: none;
+  background: none;
+  border: none;
+  color: #94a3b8;
+  font-size: 20px;
+  cursor: pointer;
+  padding: 4px 8px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+/* Mobile collapsible dropdown */
+.nav-mobile-menu {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid #1e293b;
+  background: #0f172a;
+}
+
+.nav-mobile-tab {
+  padding: 13px 24px;
+  color: #64748b;
+  text-decoration: none;
+  font-size: 14px;
+  text-align: left;
+  border-left: 3px solid transparent;
+}
+
+.nav-mobile-tab:hover,
+.nav-mobile-tab.nav-tab-active {
+  border-left-color: #3b82f6;
+  color: #f1f5f9;
+  background: #1e293b;
+  font-weight: 600;
+}
+
 /* ── Responsive layout ──────────────────────────────────────── */
 .app-header-inner {
   max-width: 1200px;
@@ -44,37 +117,55 @@
   padding: 28px 24px;
 }
 
-@media (max-width: 600px) {
+/* ── API Test Suite panel ───────────────────────────────────── */
+.api-test-panel {
+  position: fixed;
+  /* sit just above the FAB: 24px margin + 48px button + 12px gap */
+  bottom: 84px;
+  right: 24px;
+  /* width: as wide as needed, never overflow horizontally */
+  width: clamp(300px, 65vw, 620px);
+  max-width: calc(100vw - 48px);
+  /* height: fill remaining vertical space above the FAB */
+  max-height: calc(100vh - 84px - 24px);
+  overflow-y: auto;
+  background-color: #0f172a;
+  border: 1px solid #334155;
+  border-radius: 10px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+  z-index: 500;
+}
+
+/* ── Tablet / narrow desktop: switch to hamburger ───────────── */
+@media (max-width: 900px) {
   .app-header-inner {
     height: auto;
     min-height: 48px;
     padding: 8px 0;
     flex-wrap: wrap;
-    row-gap: 0;
     gap: 8px;
+    row-gap: 0;
   }
 
   .app-spacer {
     display: none;
   }
 
+  /* Desktop nav hidden – replaced by hamburger dropdown */
   .app-nav {
-    order: 3;
-    flex: 0 0 100%;
-    overflow-x: auto;
-    border-top: 1px solid #1e293b;
-    padding: 4px 0;
-    scrollbar-width: none;
+    display: none;
   }
 
-  .app-nav::-webkit-scrollbar {
-    display: none;
+  /* Show hamburger */
+  .nav-hamburger {
+    display: flex;
+    align-items: center;
   }
 
   .app-auth {
     flex-shrink: 1;
     flex: 1;
-    gap: 4px;
+    gap: 6px;
     justify-content: flex-end;
     min-width: 0;
     flex-wrap: wrap;
@@ -82,12 +173,32 @@
   }
 
   .app-login-input {
-    width: 72px;
-    font-size: 12px;
-    padding: 6px 7px;
+    width: 110px;
+    font-size: 13px;
+    padding: 7px 10px;
   }
 
   .app-main {
     padding: 16px 12px;
+  }
+}
+
+/* ── Phone: compact login + full-width API panel ────────────── */
+@media (max-width: 500px) {
+  .app-login-input {
+    width: 80px;
+    font-size: 12px;
+    padding: 6px 7px;
+  }
+
+  .api-test-panel {
+    left: 8px;
+    right: 8px;
+    bottom: 72px;
+    width: auto;
+    max-width: none;
+    max-height: calc(100vh - 72px - 16px);
+    /* centered on phone instead of right-anchored */
+    margin: 0;
   }
 }

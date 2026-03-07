@@ -419,7 +419,7 @@ const ConnectionTest = ({ isAuthenticated }) => {
   ];
 
   return (
-    <div style={{ padding: '30px', maxWidth: '800px', margin: '0 auto', fontFamily: 'system-ui, -apple-system, sans-serif', color: '#f1f5f9' }}>
+    <div style={{ padding: '16px 20px', fontFamily: 'system-ui, -apple-system, sans-serif', color: '#f1f5f9' }}>
       <h2 style={{ marginBottom: '6px', color: '#f1f5f9' }}>API Test Suite</h2>
       <p style={{ color: '#64748b', fontSize: '14px', marginBottom: '20px' }}>
         Covers connectivity and read endpoints for all users, plus CRUD admin flows.
@@ -501,16 +501,17 @@ const ConnectionTest = ({ isAuthenticated }) => {
                   {groupTests.map((test, i) => (
                     <div key={i} style={{
                       display: 'flex',
+                      flexWrap: 'wrap',
                       justifyContent: 'space-between',
                       alignItems: 'center',
                       padding: '9px 14px',
                       backgroundColor: test.success ? '#052e16' : test.status.startsWith('⛔') ? '#431407' : '#450a0a',
                       border: `1px solid ${test.success ? '#166534' : test.status.startsWith('⛔') ? '#9a3412' : '#7f1d1d'}`,
                       borderRadius: '6px',
-                      gap: '12px'
+                      gap: '6px 12px'
                     }}>
-                      <div style={{ fontWeight: '500', fontSize: '14px', minWidth: '190px', color: '#f1f5f9' }}>{test.name}</div>
-                      <div style={{ fontSize: '12px', color: '#94a3b8', fontFamily: 'monospace', textAlign: 'right', flex: 1 }}>{test.detail}</div>
+                      <div style={{ fontWeight: '500', fontSize: '13px', minWidth: '120px', flexShrink: 0, color: '#f1f5f9' }}>{test.name}</div>
+                      <div style={{ fontSize: '12px', color: '#94a3b8', fontFamily: 'monospace', textAlign: 'right', flex: 1, minWidth: 0, wordBreak: 'break-word' }}>{test.detail}</div>
                     </div>
                   ))}
                 </div>

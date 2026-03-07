@@ -120,7 +120,7 @@ const LandingPage = ({ isAuthenticated, onGetStarted }) => {
           padding: '0',
         }}>
           {[
-            { value: 'CRUD', label: 'Full Operations' },
+            { value: 'UI-friendly', label: 'Easy to Use' },
             { value: 'Role-based', label: 'Access Control' },
             { value: 'Real-time', label: 'Audit Logging' },
           ].map((stat, i) => (
