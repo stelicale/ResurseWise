@@ -220,9 +220,9 @@ has been blocked by CORS policy
 **Problem:** 401 Unauthorized from frontend
 
 **Solutions:**
-1. Ensure JWT token is stored in localStorage: `localStorage.setItem('access_token', token)`
-2. Verify token is not expired (default: 5 minutes)
-3. Check Authorization header format: `Bearer <token>`
+1. Ensure user is authenticated through Keycloak (frontend Login button)
+2. Verify token refresh is working in `frontend/my-frontend/src/services/api.js`
+3. Check Authorization header format in requests: `Bearer <token>`
 
 For detailed frontend integration documentation, see: `frontend/my-frontend/README.md`
 

@@ -1,0 +1,83 @@
+# Start:
+#   docker compose -p dvloper-prod -f docker-compose.prod.yml up -d --build
+#
+# Stop:
+#   docker compose -p dvloper-prod -f docker-compose.prod.yml down
+
+services:
+
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB:       mydb
+      POSTGRES_USER:     admin
+      POSTGRES_PASSWORD: secret
+    volumes:
+      - prod_postgres_data:/var/lib/postgresql/data
+    networks: [internal]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:23.0.0
+    environment:
+      KEYCLOAK_ADMIN:          admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+      KC_DB:                   postgres
+      KC_DB_URL:               jdbc:postgresql://postgres:5432/mydb
+      KC_DB_USERNAME:          admin
+      KC_DB_PASSWORD:          secret
+      KC_HTTP_ENABLED:         "true"
+      KC_HOSTNAME_STRICT:      "false"
+      KC_PROXY:                edge
+    command: start-dev
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8083:8080"   # Keycloak Admin UI: http://localhost:8083
+    networks: [internal]
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: .
+    environment:
+      SPRING_DATASOURCE_URL:      jdbc:postgresql://postgres:5432/mydb
+      SPRING_DATASOURCE_USERNAME: admin
+      SPRING_DATASOURCE_PASSWORD: secret
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI:  http://keycloak:8080/realms/ITResurceManager
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: http://keycloak:8080/realms/ITResurceManager/protocol/openid-connect/certs
+      KEYCLOAK_ADMIN_URL:      http://keycloak:8080
+      KEYCLOAK_REALM:          ITResurceManager
+      KEYCLOAK_ADMIN_USERNAME: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+    ports:
+      - "8082:8080"   # Swagger UI: http://localhost:8082/swagger-ui/index.html
+    depends_on:
+      - keycloak
+    networks: [internal]
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ../frontend/my-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+      - keycloak
+    networks: [internal]
+    restart: unless-stopped
+
+volumes:
+  prod_postgres_data:
+
+networks:
+  internal:
+    driver: bridge
