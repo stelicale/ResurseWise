@@ -11,7 +11,7 @@
     "keycloak-js": "^26.2.3",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
-    "react-router-dom": "^7.13.1",
+    "react-router-dom": "^6.30.0",
     "react-scripts": "5.0.1",
     "react-toastify": "^11.0.5",
     "web-vitals": "^2.1.4"
@@ -44,5 +44,21 @@
     "eslint-plugin-prettier": "^5.5.5",
     "http-proxy-middleware": "^3.0.3",
     "prettier": "^3.8.1"
+  },
+  "jest": {
+    "coverageReporters": ["text-summary", "json-summary"],
+    "globalTeardown": "<rootDir>/printCoverage.js",
+    "transformIgnorePatterns": [
+      "/node_modules/(?!(react-router-dom|@remix-run/router|@remix-run/react)/)"
+    ],
+    "moduleNameMapper": {
+      "\\.(css|less|scss|sass)$": "<rootDir>/src/__mocks__/fileMock.js"
+    },
+    "collectCoverageFrom": [
+      "src/components/ProtectedRoute.jsx",
+      "src/components/Navbar.jsx",
+      "src/services/api.js",
+      "src/services/categoryService.js"
+    ]
   }
 }

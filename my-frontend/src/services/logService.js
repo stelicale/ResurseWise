@@ -23,14 +23,6 @@ export const logService = {
     }
   },
 
-  /**
-   * Get all logs (last 24h by default)
-   * Alias for getLogs() with default parameter
-   * @returns {Promise<Array>} List of all activity logs
-   */
-  getAllLogs: async () => {
-    return logService.getLogs('24h');
-  },
 };
 
 export default logService;

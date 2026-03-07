@@ -56,8 +56,6 @@ apiClient.interceptors.response.use(
       switch (status) {
         case 401:
           toast.error(data?.message || 'Unauthorized. Please login again.');
-          // Optionally redirect to login
-          // window.location.href = '/login';
           break;
         case 403:
           toast.error(data?.message || 'Access forbidden. You do not have permission.');

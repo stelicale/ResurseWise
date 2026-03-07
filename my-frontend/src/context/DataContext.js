@@ -13,7 +13,7 @@ import { resourceService } from '../services/resourceService';
 import { userService } from '../services/userService';
 import { logService } from '../services/logService';
 
-// ─── Action Types ─────────────────────────────────────────────────────────────
+// Action Types
 
 const ACTIONS = {
   FETCH_START: 'FETCH_START',
@@ -23,7 +23,7 @@ const ACTIONS = {
   RESET: 'RESET',
 };
 
-// ─── Initial State ────────────────────────────────────────────────────────────
+// Initial State
 
 const createSlice = () => ({
   data: null,       // cached response (array or object)
@@ -39,7 +39,7 @@ const initialState = {
   logs: createSlice(),
 };
 
-// ─── Reducer ──────────────────────────────────────────────────────────────────
+// Reducer
 
 const dataReducer = (state, action) => {
   const { entity } = action;
@@ -82,7 +82,7 @@ const dataReducer = (state, action) => {
   }
 };
 
-// ─── Context ──────────────────────────────────────────────────────────────────
+// Context
 
 const DataContext = createContext(null);
 
@@ -156,7 +156,7 @@ export const DataProvider = ({ children, isAuthenticated }) => {
     dispatch({ type: ACTIONS.INVALIDATE, entity });
   }, []);
 
-  // ─── Public fetch actions ──────────────────────────────────────────────────
+  // Public fetch actions
 
   const fetchCategories = useCallback(
     (force = false) => fetchEntity('categories', categoryService.getAllCategories, force),

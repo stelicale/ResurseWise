@@ -32,7 +32,7 @@ const DataTable = ({
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(defaultPageSize);
 
-  // ── Filtering ──────────────────────────────────────────────────────────────
+  // Filtering
   const filtered = useMemo(() => {
     let rows = data;
     for (const f of filters) {
@@ -48,7 +48,7 @@ const DataTable = ({
     return rows;
   }, [data, filterValues, filters]);
 
-  // ── Sorting ────────────────────────────────────────────────────────────────
+  // Sorting
   const sorted = useMemo(() => {
     if (!sortKey) return filtered;
     return [...filtered].sort((a, b) => {
@@ -59,7 +59,7 @@ const DataTable = ({
     });
   }, [filtered, sortKey, sortDir]);
 
-  // ── Pagination ─────────────────────────────────────────────────────────────
+  // Pagination
   const totalPages = Math.max(1, Math.ceil(sorted.length / pageSize));
   const clampedPage = Math.min(page, totalPages);
   const paginated = sorted.slice((clampedPage - 1) * pageSize, clampedPage * pageSize);
@@ -97,7 +97,7 @@ const DataTable = ({
     return range;
   };
 
-  // ── Styles ─────────────────────────────────────────────────────────────────
+  // Styles
   const s = {
     wrapper: {
       backgroundColor: '#0f172a',
@@ -441,7 +441,7 @@ const DataTable = ({
   );
 };
 
-// ── TableRow with hover effect ─────────────────────────────────────────────────
+// TableRow with hover effect
 const TableRow = ({ row, columns, actions, isAdmin, s }) => {
   const [hovered, setHovered] = useState(false);
 

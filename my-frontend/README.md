@@ -310,14 +310,103 @@ data (all rows, passed as prop)
 
 ## Testing
 
-The project uses Jest and React Testing Library (bundled with Create React App).
+### Framework
 
-Run tests in watch mode:
+| Tool | Purpose |
+|------|---------|
+| **Jest** | Test runner, assertions, mocking — bundled with Create React App |
+| **React Testing Library** | Component rendering and DOM queries |
+| **Cypress** | End-to-end (E2E) testing — see *E2E* section below |
+
+---
+
+### Running unit tests
 
 ```bash
-cd frontend/my-frontend
+# Watch mode (interactive, re-runs on save)
 npm test
+
+# Single full run with coverage report
+npm test -- --coverage --watchAll=false
+
+# Coverage report only (no watch)
+CI=true npm test -- --coverage
 ```
 
-The existing test (`src/App.test.js`) verifies that the root component mounts without crashing.
-New tests follow the same `@testing-library/react` pattern in the same directory.
+Coverage is collected from the four critical modules listed in the `jest.collectCoverageFrom`
+field of `package.json`. A minimum threshold of **20 %** is enforced globally for statements,
+branches, functions, and lines.
+
+---
+
+### Test files
+
+| File | What it tests |
+|------|---------------|
+| `src/App.test.js` | Root component mounts without crashing |
+| `src/components/__tests__/ProtectedRoute.test.jsx` | **Rendering of protected routes** – all three guard outcomes (unauthenticated redirect, non-admin redirect, authorised render) |
+| `src/components/__tests__/Navbar.test.jsx` | **Role-based UI visibility** – tabs hidden/shown by role, hamburger open/close, unauthenticated login form |
+| `src/services/__tests__/api.test.js` | **API call success and error states** – `get/post/put/delete` return `response.data`; response interceptor maps 401/403/404/500/network errors to correct toast messages |
+
+---
+
+### Mocking strategy
+
+> **Warning:** Unit tests never call real backend endpoints or a live Keycloak instance.
+
+| Dependency | How it is mocked |
+|------------|-----------------|
+| `axios` | `jest.mock('axios', factory)` — `axios.create()` returns a controlled fake instance with `jest.fn()` methods; interceptor handlers are extracted and tested directly |
+| `AuthContext` (`useAuth`) | `jest.mock('../../context/AuthContext')` — `useAuth.mockReturnValue({...})` injects controlled auth state per test |
+| `keycloak.js` | `jest.mock` — `refreshToken` returns `null` (no token attached to requests) |
+| `react-toastify` | `jest.mock` — `toast.error` / `toast.success` are `jest.fn()` so assertions can verify which message was shown |
+| Router | Not mocked — `MemoryRouter` from `react-router-dom` provides real routing context in tests |
+
+---
+
+### Writing new tests
+
+Follow the same pattern:
+
+```jsx
+import { render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
+import MyComponent from '../MyComponent';
+import { useAuth } from '../../context/AuthContext';
+
+jest.mock('../../context/AuthContext');
+
+test('renders correctly', () => {
+  useAuth.mockReturnValue({ isAuthenticated: true, isAdmin: false });
+  render(<MemoryRouter><MyComponent /></MemoryRouter>);
+  expect(screen.getByText('Expected text')).toBeInTheDocument();
+});
+```
+
+---
+
+### E2E testing (Cypress)
+
+> **Warning:** E2E tests must use a dedicated test Keycloak realm — never run against the
+> production realm or shared development data.
+
+Install Cypress (once):
+
+```bash
+npm install --save-dev cypress
+```
+
+Open Cypress interactive runner:
+
+```bash
+npx cypress open
+```
+
+Run headlessly (CI):
+
+```bash
+npx cypress run
+```
+
+Cypress specs live in `cypress/e2e/`. A test Keycloak instance on a separate port (e.g. 8082)
+with a pre-seeded realm and test users should be started before running E2E tests.

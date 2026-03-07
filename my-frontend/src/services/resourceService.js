@@ -24,21 +24,6 @@ export const resourceService = {
   },
 
   /**
-   * Get a single resource by ID
-   * @param {string} id - Resource UUID
-   * @returns {Promise<Object>} Resource object
-   */
-  getResourceById: async (id) => {
-    try {
-      const data = await apiService.get(`${RESOURCE_ENDPOINT}/${id}`);
-      return data;
-    } catch (error) {
-      console.error(`Error fetching resource ${id}:`, error);
-      throw error;
-    }
-  },
-
-  /**
    * Create a new resource
    * @param {Object} resourceData - Resource data
    * @returns {Promise<Object>} Created resource

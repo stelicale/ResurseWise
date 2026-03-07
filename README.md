@@ -6,6 +6,7 @@ Communicates with a Spring Boot REST API secured by Keycloak.
 ## Tech Stack
 
 - React 19.2.4 (Create React App)
+- React Router DOM v6 - client-side routing (`BrowserRouter`, `Routes`, `NavLink`, `useNavigate`)
 - Axios 1.x - HTTP client with token interceptor
 - keycloak-js - OpenID Connect authentication (Resource Owner Password Credentials flow)
 - react-toastify - Toast notifications
@@ -56,22 +57,26 @@ npm run format     # Format code with Prettier
 
 ```
 src/
-  App.js                   # Root layout, header, tab-based routing
-  App.css                  # Global styles and responsive media queries
+  App.js                   # Root layout; BrowserRouter + Routes + role-based pages
+  App.css                  # Global styles and responsive media queries (breakpoint: 900 px)
   auth/
     keycloak.js            # Keycloak adapter initialisation
+  config/
+    routes.js              # Central route definitions with adminOnly flags
   context/
     AuthContext.js         # login, logout, isAuthenticated, isAdmin, username
     DataContext.js         # In-memory TTL cache for resources and categories
   components/
+    Navbar.jsx             # Sticky navbar: brand, desktop nav tabs, hamburger, auth area
+    ProtectedRoute.jsx     # Auth + role guard; redirects unauthorised users
     DataTable.jsx          # Reusable table with filtering, sorting, pagination
-    ResourcesPage.jsx      # Resources tab (uses DataTable)
-    CategoriesPage.jsx     # Categories tab (uses DataTable)
-    UsersPage.jsx          # Users tab - admin only (uses DataTable)
-    LogsPage.jsx           # Audit logs tab - admin only (uses DataTable)
-    LandingPage.jsx        # Home screen shown before login
+    ResourcesPage.jsx      # /resources (uses DataTable)
+    CategoriesPage.jsx     # /categories (uses DataTable)
+    UsersPage.jsx          # /users - admin only (uses DataTable)
+    LogsPage.jsx           # /logs   - admin only (uses DataTable)
+    LandingPage.jsx        # / home screen shown before login
     Modal.jsx              # Generic modal dialog with form helpers
-    ConnectionTest.jsx     # Automated API test panel
+    ConnectionTest.jsx     # Automated API test panel (floating, bottom-right)
   services/
     api.js                 # Axios instance with Bearer token interceptor
     resourceService.js     # CRUD for resources
@@ -108,9 +113,11 @@ The app uses React Context API. Two providers are defined in `src/context/`:
 Provider tree (inside `App.js`):
 
 ```
-AuthProvider
-  DataProvider (receives isAuthenticated via DataWrapper)
-    AppContent
+BrowserRouter
+  AuthProvider
+    DataWrapper          ← reads isAuthenticated, passes it to DataProvider
+      DataProvider
+        AppContent       ← renders <Navbar /> + <Routes>
 ```
 
 `DataWrapper` reads `isAuthenticated` from `AuthContext` and passes it to `DataProvider`, ensuring the
@@ -172,6 +179,60 @@ Errors are caught globally in `api.js`. The user sees a toast for every failure:
 
 The backend (`CorsConfig.java`) accepts requests from `http://localhost:3000` with all HTTP methods
 and the `Authorization` header.
+
+---
+
+## Routing & Navigation
+
+### Route Definitions
+
+All routes are declared in `src/config/routes.js` as a single exported array. No route path or role
+string is hardcoded inside any component.
+
+```js
+export const NAV_ROUTES = [
+  { path: '/resources',  label: 'Resources',  adminOnly: false },
+  { path: '/categories', label: 'Categories', adminOnly: false },
+  { path: '/users',      label: 'Users',      adminOnly: true  },
+  { path: '/logs',       label: 'Logs',       adminOnly: true  },
+];
+```
+
+To add a new route: add an entry here, create its page component, and add a matching `<Route>` in
+`App.js`. The navbar tab appears automatically.
+
+### Access Control
+
+`src/components/ProtectedRoute.jsx` wraps any `<Route>` element that requires authentication or a
+specific role:
+
+| Visitor state | Outcome |
+|---------------|---------|
+| Not authenticated | Redirected to `/` (landing page) with `state.from` saved for optional post-login redirect |
+| Authenticated, not admin, `adminOnly` route | Redirected to `/resources` |
+| Authorised | Children rendered normally |
+
+Frontend guards are UX only. All backend REST endpoints independently verify the Keycloak JWT and
+enforce the same role restrictions.
+
+### Navbar
+
+`src/components/Navbar.jsx` is rendered once in `AppContent`, above `<Routes>`, so it appears on
+every page.
+
+**Unauthenticated state:** brand logo + login form (username, password, Login button).
+
+**Authenticated state:** brand logo + desktop nav tabs filtered by role + username/role badge +
+Logout button + hamburger button (mobile only).
+
+**Responsive behaviour:**
+
+| Viewport | Behaviour |
+|----------|-----------|
+| > 900 px | Full horizontal tab bar visible |
+| ≤ 900 px | Tab bar hidden; hamburger `☰` button shown |
+| Hamburger pressed | Full-width dropdown column appears below the header bar |
+| Route changes | Dropdown closes automatically |
 
 ---
 
@@ -241,21 +302,113 @@ data (all rows, passed as prop)
 - `overflowX: auto` on the table wrapper enables horizontal scrolling on narrow viewports.
 - The filter row, header, and footer use `flexWrap: wrap` so controls stack when horizontal space
   is limited.
-- The application header adapts at 600 px via CSS media queries in `App.css`: navigation tabs move
-  to a second row with horizontal scroll, and login inputs shrink to fit phone viewports.
+- The application header adapts at **900 px** via CSS media queries in `App.css`: the tab bar is
+  replaced by a collapsible hamburger dropdown, and login inputs compress to fit phone viewports.
+- On screens ≤ 500 px the API Test Suite panel stretches edge-to-edge (`left/right: 8px`).
 
 ---
 
 ## Testing
 
-The project uses Jest and React Testing Library (bundled with Create React App).
+### Framework
 
-Run tests in watch mode:
+| Tool | Purpose |
+|------|---------|
+| **Jest** | Test runner, assertions, mocking — bundled with Create React App |
+| **React Testing Library** | Component rendering and DOM queries |
+| **Cypress** | End-to-end (E2E) testing — see *E2E* section below |
+
+---
+
+### Running unit tests
 
 ```bash
-cd frontend/my-frontend
+# Watch mode (interactive, re-runs on save)
 npm test
+
+# Single full run with coverage report
+npm test -- --coverage --watchAll=false
+
+# Coverage report only (no watch)
+CI=true npm test -- --coverage
 ```
 
-The existing test (`src/App.test.js`) verifies that the root component mounts without crashing.
-New tests follow the same `@testing-library/react` pattern in the same directory.
+Coverage is collected from the four critical modules listed in the `jest.collectCoverageFrom`
+field of `package.json`. A minimum threshold of **20 %** is enforced globally for statements,
+branches, functions, and lines.
+
+---
+
+### Test files
+
+| File | What it tests |
+|------|---------------|
+| `src/App.test.js` | Root component mounts without crashing |
+| `src/components/__tests__/ProtectedRoute.test.jsx` | **Rendering of protected routes** – all three guard outcomes (unauthenticated redirect, non-admin redirect, authorised render) |
+| `src/components/__tests__/Navbar.test.jsx` | **Role-based UI visibility** – tabs hidden/shown by role, hamburger open/close, unauthenticated login form |
+| `src/services/__tests__/api.test.js` | **API call success and error states** – `get/post/put/delete` return `response.data`; response interceptor maps 401/403/404/500/network errors to correct toast messages |
+
+---
+
+### Mocking strategy
+
+> **Warning:** Unit tests never call real backend endpoints or a live Keycloak instance.
+
+| Dependency | How it is mocked |
+|------------|-----------------|
+| `axios` | `jest.mock('axios', factory)` — `axios.create()` returns a controlled fake instance with `jest.fn()` methods; interceptor handlers are extracted and tested directly |
+| `AuthContext` (`useAuth`) | `jest.mock('../../context/AuthContext')` — `useAuth.mockReturnValue({...})` injects controlled auth state per test |
+| `keycloak.js` | `jest.mock` — `refreshToken` returns `null` (no token attached to requests) |
+| `react-toastify` | `jest.mock` — `toast.error` / `toast.success` are `jest.fn()` so assertions can verify which message was shown |
+| Router | Not mocked — `MemoryRouter` from `react-router-dom` provides real routing context in tests |
+
+---
+
+### Writing new tests
+
+Follow the same pattern:
+
+```jsx
+import { render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
+import MyComponent from '../MyComponent';
+import { useAuth } from '../../context/AuthContext';
+
+jest.mock('../../context/AuthContext');
+
+test('renders correctly', () => {
+  useAuth.mockReturnValue({ isAuthenticated: true, isAdmin: false });
+  render(<MemoryRouter><MyComponent /></MemoryRouter>);
+  expect(screen.getByText('Expected text')).toBeInTheDocument();
+});
+```
+
+---
+
+### E2E testing (Cypress)
+
+> **Warning:** E2E tests must use a dedicated test Keycloak realm — never run against the
+> production realm or shared development data.
+
+Install Cypress (once):
+
+```bash
+npm install --save-dev cypress
+```
+
+Open Cypress interactive runner:
+
+```bash
+npx cypress open
+```
+
+Run headlessly (CI):
+
+```bash
+npx cypress run
+```
+
+Cypress specs live in `cypress/e2e/`. A test Keycloak instance on a separate port (e.g. 8082)
+with a pre-seeded realm and test users should be started before running E2E tests.
+
+Reference: [https://docs.cypress.io/guides/overview/why-cypress](https://docs.cypress.io/guides/overview/why-cypress)

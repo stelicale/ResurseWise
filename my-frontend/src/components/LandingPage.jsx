@@ -44,23 +44,17 @@ const LandingPage = ({ isAuthenticated, onGetStarted }) => {
         background: 'linear-gradient(180deg, #0f172a 0%, #0d1f38 100%)',
         borderBottom: '1px solid #1e293b',
       }}>
-        <div style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: '8px',
-          padding: '4px 14px',
-          borderRadius: '20px',
-          border: '1px solid #1e3a5f',
-          backgroundColor: '#0c2340',
-          color: '#60a5fa',
-          fontSize: '12px',
-          fontWeight: '600',
-          letterSpacing: '0.06em',
-          textTransform: 'uppercase',
-          marginBottom: '28px',
-        }}>
-          Resource Management Platform
-        </div>
+        <img
+          src={`${process.env.PUBLIC_URL}/logo.png`}
+          alt="ResurseWise logo"
+          style={{
+            width: '88px',
+            height: '88px',
+            objectFit: 'contain',
+            marginBottom: '24px',
+            filter: 'drop-shadow(0 0 18px #3b82f660)',
+          }}
+        />
 
         <h1 style={{
           margin: '0 0 20px',
