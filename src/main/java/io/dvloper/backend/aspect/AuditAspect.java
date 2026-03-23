@@ -72,6 +72,7 @@ public class AuditAspect {
             log.setCreatedByKeycloakId(userId);
             log.setResource(affectedResource);
             log.setComments(comments);
+            log.setSuccess(true);
 
             logRepository.save(log);
 

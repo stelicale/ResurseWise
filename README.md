@@ -23,24 +23,136 @@ It serves as the REST API foundation, managing data persistence via PostgreSQL a
 
 ### Database Setup
 The application requires a PostgreSQL database running in a Docker container.
-Run the following command to start the database: `docker start posql`.
+Run the full stack from repository root: `docker compose --env-file backend/.env up -d --build`.
 
 The server will start on default port **8080**.
 To start the Spring Boot server with the required environment variables:
 
 ```bash
-DB_USER=admin DB_PASSWORD=secret ./mvnw spring-boot:run
+DB_URL=jdbc:postgresql://localhost:5432/mydb DB_USER=admin DB_PASSWORD=secret ./mvnw spring-boot:run
 ```
 
 ### Keycloak Setup (Authentication)
 The application relies on Keycloak for identity management. Ensure your Keycloak container is running on port 8081.
-Run the following command to start Keycloak: `docker start kclk`.
+When using root compose, Keycloak starts automatically.
+Realm and identity data are persisted in PostgreSQL Docker volume (not imported from a JSON file at every startup).
 Credentials for Keycloak admin console:
 * **Username:** `admin`
 * **Password:** `admin`
 * **Environment Variables:**
   * `KEYCLOAK_ADMIN=admin`
   * `KEYCLOAK_ADMIN_PASSWORD=admin`
+
+## Containerizing Backend (Docker)
+
+The backend includes a multi-stage `Dockerfile` optimized for smaller runtime images.
+
+### Build Docker Image
+
+```bash
+cd backend
+docker build -t dvloper-backend:local .
+```
+
+### Run Docker Container
+
+The API is exposed on container port `8080` and mapped locally to `8080`.
+
+```bash
+docker run --rm -p 8080:8080 \
+  --env-file .env \
+  dvloper-backend:local
+```
+
+You can also pass variables directly:
+
+```bash
+docker run --rm -p 8080:8080 \
+  -e DB_URL=jdbc:postgresql://host.docker.internal:5432/mydb \
+  -e DB_USER=admin \
+  -e DB_PASSWORD=secret \
+  -e JWT_ISSUER_URI=http://host.docker.internal:8081/realms/ITResurceManager \
+  -e JWT_JWK_SET_URI=http://host.docker.internal:8081/realms/ITResurceManager/protocol/openid-connect/certs \
+  -e KEYCLOAK_ADMIN_URL=http://host.docker.internal:8081 \
+  -e KEYCLOAK_REALM=ITResurceManager \
+  -e KEYCLOAK_ADMIN_USERNAME=admin \
+  -e KEYCLOAK_ADMIN_PASSWORD=admin \
+  dvloper-backend:local
+```
+
+### Required Runtime Environment Variables
+
+* `DB_URL` - JDBC URL for PostgreSQL
+* `DB_USER` - Database username
+* `DB_PASSWORD` - Database password
+* `JWT_ISSUER_URI` - Keycloak issuer URI
+* `JWT_JWK_SET_URI` - Keycloak JWK set URI
+* `KEYCLOAK_ADMIN_URL` - Keycloak base URL for admin API
+* `KEYCLOAK_REALM` - Keycloak realm name
+* `KEYCLOAK_ADMIN_USERNAME` - Keycloak admin username
+* `KEYCLOAK_ADMIN_PASSWORD` - Keycloak admin password
+
+### Security Notes
+
+* Never hardcode secrets in `Dockerfile` or source code.
+* Keep real credentials in `.env` (ignored in git) or in your deployment secret manager.
+* `.env.example` contains the expected variable names only.
+
+## Full Stack with Docker Compose
+
+The repository root contains `docker-compose.yml` that orchestrates:
+
+* `frontend` (React static files served by Nginx)
+* `backend` (Spring Boot API)
+* `postgres` (database with named volume)
+* `keycloak` (identity provider used by backend)
+
+### 1. Prepare environment variables
+
+Use `backend/.env` for secrets and credentials. Minimum required keys:
+
+```env
+DB_USER=admin
+DB_PASSWORD=secret
+KEYCLOAK_ADMIN_USERNAME=admin
+KEYCLOAK_ADMIN_PASSWORD=admin
+```
+
+Optional variables (have defaults in compose):
+
+```env
+POSTGRES_DB=mydb
+KEYCLOAK_REALM=ITResurceManager
+```
+
+### 2. Start the entire stack
+
+From repository root:
+
+```bash
+docker compose --env-file backend/.env up -d --build
+```
+
+### 3. Verify the stack
+
+```bash
+docker compose ps
+curl -I http://localhost:8088
+```
+
+Frontend is exposed on `http://localhost:8088`.
+
+### 4. Stop the stack
+
+```bash
+docker compose --env-file backend/.env down
+```
+
+To also remove persisted PostgreSQL data:
+
+```bash
+docker compose --env-file backend/.env down -v
+```
 
 ## Architecture & Features
 
@@ -90,12 +202,14 @@ A centralized exception handler (`@RestControllerAdvice`) captures errors and re
 To interact with protected endpoints via `Swagger` or `cURL`, you must first obtain a `JWT` Access Token.
 
 ### Test Users
-We have pre-configured two users with different permission levels to test `Role-Based Access Control`:
+If your persisted Keycloak volume already contains test users, you can use the following accounts for `Role-Based Access Control`:
 
 | Username | Password | Roles          |
 |----------|----------|----------------|
 | `sudosu`  | `admin` | `Admin` (Full CRUD access)    |
 | `salahor` | `1234` | `Employee` (Read-only access)   |
+
+If these users are missing (fresh volume), create them once in Keycloak Admin Console. They will remain persisted in the PostgreSQL volume.
 
 ## How to Generate Tokens
 Run the following commands in your terminal to get the raw JSON response containing the `access_token`.

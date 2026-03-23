@@ -34,6 +34,9 @@ public class Log {
     @Column(name = "created_by_keycloak_id")
     private UUID createdByKeycloakId;
 
+    @Column(name = "success", nullable = false, columnDefinition = "boolean default true")
+    private boolean success = true;
+
     public Log() {
     }
 
@@ -43,6 +46,7 @@ public class Log {
         this.createdByKeycloakId = createdByKeycloakId;
         this.comments = comments;
         this.actionDate = LocalDateTime.now();
+        this.success = true;
     }
 
     // Getters and Setters
@@ -92,5 +96,13 @@ public class Log {
 
     public void setCreatedByKeycloakId(UUID createdByKeycloakId) {
         this.createdByKeycloakId = createdByKeycloakId;
+    }
+
+    public boolean isSuccess() {
+        return success;
+    }
+
+    public void setSuccess(boolean success) {
+        this.success = success;
     }
 }

@@ -79,9 +79,9 @@ class ResourceControllerIntegrationTest {
 
         mockMvc.perform(get("/api/resources"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$", hasSize(2)))
-                .andExpect(jsonPath("$[0].name", is("Resource 1")))
-                .andExpect(jsonPath("$[1].name", is("Resource 2")));
+            .andExpect(jsonPath("$.content", hasSize(2)))
+            .andExpect(jsonPath("$.content[0].name", is("Resource 1")))
+            .andExpect(jsonPath("$.content[1].name", is("Resource 2")));
     }
 
     @Test

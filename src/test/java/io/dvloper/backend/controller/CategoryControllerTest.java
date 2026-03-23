@@ -11,6 +11,9 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
 import org.springframework.http.MediaType;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -44,13 +47,13 @@ class CategoryControllerTest {
         Category cat1 = createCategory("Laptops", "High performance");
         Category cat2 = createCategory("Monitors", "Display devices");
 
-        when(repository.findAll()).thenReturn(Arrays.asList(cat1, cat2));
+        when(repository.findAll(any(Specification.class), any(Pageable.class))).thenReturn(new PageImpl<>(Arrays.asList(cat1, cat2)));
 
         mockMvc.perform(get("/api/categories"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$", hasSize(2)))
-                .andExpect(jsonPath("$[0].name", is("Laptops")))
-                .andExpect(jsonPath("$[1].name", is("Monitors")));
+            .andExpect(jsonPath("$.content", hasSize(2)))
+            .andExpect(jsonPath("$.content[0].name", is("Laptops")))
+            .andExpect(jsonPath("$.content[1].name", is("Monitors")));
     }
 
     @Test
@@ -163,10 +166,11 @@ class CategoryControllerTest {
 
     @Test
     void testGetAllCategoriesEmpty() throws Exception {
-        // Mockito returns empty list by default for unstubbed collection methods
+        when(repository.findAll(any(Specification.class), any(Pageable.class))).thenReturn(new PageImpl<>(Arrays.asList()));
+
         mockMvc.perform(get("/api/categories"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$", hasSize(0)));
+            .andExpect(jsonPath("$.content", hasSize(0)));
     }
 
     @Test

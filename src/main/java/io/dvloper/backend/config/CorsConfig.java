@@ -6,15 +6,8 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
-import java.util.Arrays;
+import java.util.List;
 
-/**
- * CORS Configuration for allowing frontend to communicate with backend API
- * 
- * This configuration enables Cross-Origin Resource Sharing (CORS) to allow
- * the React frontend (running on http://localhost:3000) to make requests
- * to the Spring Boot backend (running on http://localhost:8080).
- */
 @Configuration
 public class CorsConfig {
 
@@ -22,30 +15,23 @@ public class CorsConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
-        // Allow frontend origin (React dev server)
-        configuration.setAllowedOrigins(Arrays.asList(
+        configuration.setAllowedOrigins(List.of(
                 "http://localhost:3000",
-                "http://localhost:3001" // Backup port
-        ));
+                "http://localhost:3001",
+                "http://localhost:8088",
+                "http://localhost"));
 
-        // Allow all HTTP methods needed for CRUD operations
-        configuration.setAllowedMethods(Arrays.asList(
+        configuration.setAllowedMethods(List.of(
                 "GET",
                 "POST",
                 "PUT",
                 "DELETE",
                 "OPTIONS"));
 
-        // Allow all headers (including Authorization for JWT tokens)
-        configuration.setAllowedHeaders(Arrays.asList("*"));
-
-        // Allow credentials (cookies, authorization headers)
+        configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);
-
-        // How long the browser can cache preflight requests (in seconds)
         configuration.setMaxAge(3600L);
 
-        // Apply this configuration to all endpoints
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
 

@@ -1,15 +1,21 @@
 package io.dvloper.backend.controller;
 
+import io.dvloper.backend.dto.PagedResponse;
 import io.dvloper.backend.entities.Log;
 import io.dvloper.backend.repository.LogRepository;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
-import java.util.List;
+import java.util.UUID;
 
 /**
  * Controller for viewing audit logs (Admin only)
@@ -34,13 +40,44 @@ public class LogController {
      */
     @GetMapping
     @Operation(summary = "Get audit logs", description = "Retrieve logs from a specific time period. Format: '5h' (5 hours) or '2d' (2 days). Min: 1h, Max: 30d")
-    public ResponseEntity<List<Log>> getLogs(
-            @Parameter(description = "Time period (e.g., '1h', '6h', '1d', '7d', '30d'). Min: 1h, Max: 30d", example = "24h") @RequestParam(defaultValue = "24h") String timeAgo) {
+    public ResponseEntity<PagedResponse<Log>> getLogs(
+            @Parameter(description = "Time period (e.g., '1h', '6h', '1d', '7d', '30d'). Min: 1h, Max: 30d", example = "24h") @RequestParam(defaultValue = "24h") String timeAgo,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "actionDate") String sortBy,
+            @RequestParam(defaultValue = "desc") String sortDir,
+            @RequestParam(required = false) String id,
+            @RequestParam(required = false) String actionType,
+            @RequestParam(required = false) String comments,
+            @RequestParam(required = false) String userId,
+            @RequestParam(required = false) Boolean success) {
 
         try {
             LocalDateTime fromDate = parseTimeAgo(timeAgo);
-            List<Log> logs = repository.findLogsSince(fromDate);
-            return ResponseEntity.ok(logs);
+
+            int normalizedPage = Math.max(page, 0);
+            int normalizedSize = Math.min(Math.max(size, 1), 100);
+            String normalizedSortBy = normalizeLogSortBy(sortBy);
+            Sort.Direction direction = "desc".equalsIgnoreCase(sortDir) ? Sort.Direction.DESC : Sort.Direction.ASC;
+            Pageable pageable = PageRequest.of(normalizedPage, normalizedSize, Sort.by(direction, normalizedSortBy));
+
+            Specification<Log> spec = Specification
+                    .<Log>where((root, query, cb) -> cb.greaterThanOrEqualTo(root.get("actionDate"), fromDate))
+                    .and(logIdLike(id))
+                    .and(containsIgnoreCase("actionType", actionType))
+                    .and(containsIgnoreCase("comments", comments))
+                    .and(userIdLike(userId))
+                    .and(hasSuccess(success));
+
+            Page<Log> result = repository.findAll(spec, pageable);
+            PagedResponse<Log> response = new PagedResponse<>(
+                    result.getContent(),
+                    result.getNumber(),
+                    result.getSize(),
+                    result.getTotalElements(),
+                    result.getTotalPages());
+
+            return ResponseEntity.ok(response);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().build();
         }
@@ -93,5 +130,56 @@ public class LogController {
         }
 
         return fromDate;
+    }
+
+    private Specification<Log> containsIgnoreCase(String field, String value) {
+        return (root, query, cb) -> {
+            if (value == null || value.isBlank()) {
+                return cb.conjunction();
+            }
+            return cb.like(cb.lower(root.get(field)), "%" + value.toLowerCase() + "%");
+        };
+    }
+
+    private Specification<Log> userIdLike(String value) {
+        return (root, query, cb) -> {
+            if (value == null || value.isBlank()) {
+                return cb.conjunction();
+            }
+
+            try {
+                UUID parsed = UUID.fromString(value);
+                return cb.equal(root.get("createdByKeycloakId"), parsed);
+            } catch (IllegalArgumentException ignored) {
+                return cb.like(cb.lower(root.get("createdByKeycloakId").as(String.class)),
+                        "%" + value.toLowerCase() + "%");
+            }
+        };
+    }
+
+    private Specification<Log> logIdLike(String value) {
+        return (root, query, cb) -> {
+            if (value == null || value.isBlank()) {
+                return cb.conjunction();
+            }
+
+            try {
+                UUID parsed = UUID.fromString(value);
+                return cb.equal(root.get("id"), parsed);
+            } catch (IllegalArgumentException ignored) {
+                return cb.like(cb.lower(root.get("id").as(String.class)), "%" + value.toLowerCase() + "%");
+            }
+        };
+    }
+
+    private Specification<Log> hasSuccess(Boolean value) {
+        return (root, query, cb) -> value == null ? cb.conjunction() : cb.equal(root.get("success"), value);
+    }
+
+    private String normalizeLogSortBy(String sortBy) {
+        return switch (sortBy) {
+            case "id", "actionType", "actionDate", "comments", "createdByKeycloakId", "success" -> sortBy;
+            default -> "actionDate";
+        };
     }
 }

@@ -6,8 +6,11 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.*;
@@ -378,12 +381,15 @@ public class KeycloakUserService {
         String url = String.format("%s/realms/master/protocol/openid-connect/token", keycloakAdminUrl);
 
         HttpHeaders headers = new HttpHeaders();
-        headers.add("Content-Type", "application/x-www-form-urlencoded");
+        headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
 
-        String body = String.format("grant_type=password&client_id=%s&username=%s&password=%s",
-                clientId, adminUsername, adminPassword);
+        MultiValueMap<String, String> body = new LinkedMultiValueMap<>();
+        body.add("grant_type", "password");
+        body.add("client_id", clientId);
+        body.add("username", adminUsername);
+        body.add("password", adminPassword);
 
-        HttpEntity<String> entity = new HttpEntity<>(body, headers);
+        HttpEntity<MultiValueMap<String, String>> entity = new HttpEntity<>(body, headers);
 
         try {
             ResponseEntity<Map> response = restTemplate.postForEntity(url, entity, Map.class);
@@ -392,6 +398,10 @@ public class KeycloakUserService {
             if (responseBody != null && responseBody.containsKey("access_token")) {
                 return (String) responseBody.get("access_token");
             }
+        } catch (org.springframework.web.client.HttpClientErrorException e) {
+            throw new RuntimeException(
+                    "Failed to obtain Keycloak admin token: " + e.getStatusCode() + " - " + e.getResponseBodyAsString(),
+                    e);
         } catch (Exception e) {
             throw new RuntimeException("Failed to obtain Keycloak admin token", e);
         }

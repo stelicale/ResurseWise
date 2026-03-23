@@ -24,34 +24,36 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 public class SecurityConfig {
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain securityFilterChain(HttpSecurity http, AuditAccessDeniedHandler auditAccessDeniedHandler)
+            throws Exception {
         http
                 .cors(cors -> cors.configure(http)) // Enable CORS with configuration from CorsConfig
                 .csrf(csrf -> csrf.disable()) // for API-uri stateless
                 .authorizeHttpRequests(auth -> auth
                         // 1. RESOURCES Endpoint
-                        .requestMatchers(HttpMethod.GET, "/api/resources/**").hasAnyRole("Admin", "Employee")
-                        .requestMatchers(HttpMethod.POST, "/api/resources/**").hasRole("Admin")
-                        .requestMatchers(HttpMethod.PUT, "/api/resources/**").hasRole("Admin")
-                        .requestMatchers(HttpMethod.DELETE, "/api/resources/**").hasRole("Admin")
+                        .requestMatchers(HttpMethod.GET, "/api/resources/**").hasAnyRole("ADMIN", "EMPLOYEE")
+                        .requestMatchers(HttpMethod.POST, "/api/resources/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/resources/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/resources/**").hasRole("ADMIN")
 
                         // 2. CATEGORIES Endpoint
-                        .requestMatchers(HttpMethod.GET, "/api/categories/**").hasAnyRole("Admin", "Employee")
-                        .requestMatchers(HttpMethod.POST, "/api/categories/**").hasRole("Admin")
-                        .requestMatchers(HttpMethod.PUT, "/api/categories/**").hasRole("Admin")
-                        .requestMatchers(HttpMethod.DELETE, "/api/categories/**").hasRole("Admin")
+                        .requestMatchers(HttpMethod.GET, "/api/categories/**").hasAnyRole("ADMIN", "EMPLOYEE")
+                        .requestMatchers(HttpMethod.POST, "/api/categories/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/categories/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/categories/**").hasRole("ADMIN")
 
                         // 3. USERS Endpoint (from Keycloak)
-                        .requestMatchers("/api/users/**").hasRole("Admin")
+                        .requestMatchers("/api/users/**").hasRole("ADMIN")
 
                         // 4. LOGS Endpoint
-                        .requestMatchers("/api/logs/**").hasRole("Admin")
+                        .requestMatchers("/api/logs/**").hasRole("ADMIN")
 
                         // 5. PUBLIC Endpoints (no authentication required)
                         .requestMatchers("/").permitAll()
 
                         // Other endpoints (if any) require authentication
                         .anyRequest().authenticated())
+                .exceptionHandling(ex -> ex.accessDeniedHandler(auditAccessDeniedHandler))
                 .oauth2ResourceServer(oauth2 -> oauth2
                         .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter())));
 
@@ -80,7 +82,8 @@ public class SecurityConfig {
             @SuppressWarnings("unchecked")
             Collection<String> roles = (Collection<String>) realmAccess.get("roles");
             return roles.stream()
-                    .map(role -> new SimpleGrantedAuthority("ROLE_" + role))
+                    .filter(role -> role != null && !role.isBlank())
+                    .map(role -> new SimpleGrantedAuthority("ROLE_" + role.toUpperCase()))
                     .collect(Collectors.toList());
         });
         return converter;

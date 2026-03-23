@@ -2,6 +2,7 @@ package io.dvloper.backend.controller;
 
 import io.dvloper.backend.entities.Category;
 import io.dvloper.backend.entities.Resource;
+import io.dvloper.backend.repository.LogRepository;
 import io.dvloper.backend.repository.ResourceRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
@@ -11,6 +12,9 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -38,6 +42,9 @@ class ResourceControllerTest {
     @MockBean
     private ResourceRepository repository;
 
+    @MockBean
+    private LogRepository logRepository;
+
     @Autowired
     private ObjectMapper objectMapper;
 
@@ -46,13 +53,13 @@ class ResourceControllerTest {
         Resource res1 = createValidResource("MacBook Pro", "SN-001");
         Resource res2 = createValidResource("Dell XPS", "SN-002");
 
-        when(repository.findAll()).thenReturn(Arrays.asList(res1, res2));
+        when(repository.findAll(any(Specification.class), any(Pageable.class))).thenReturn(new PageImpl<>(Arrays.asList(res1, res2)));
 
         mockMvc.perform(get("/api/resources"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$", hasSize(2)))
-                .andExpect(jsonPath("$[0].name", is("MacBook Pro")))
-                .andExpect(jsonPath("$[1].name", is("Dell XPS")));
+            .andExpect(jsonPath("$.content", hasSize(2)))
+            .andExpect(jsonPath("$.content[0].name", is("MacBook Pro")))
+            .andExpect(jsonPath("$.content[1].name", is("Dell XPS")));
     }
 
     @Test
@@ -156,11 +163,11 @@ class ResourceControllerTest {
 
     @Test
     void testGetAllResourcesEmpty() throws Exception {
-        when(repository.findAll()).thenReturn(Arrays.asList());
+        when(repository.findAll(any(Specification.class), any(Pageable.class))).thenReturn(new PageImpl<>(Arrays.asList()));
 
         mockMvc.perform(get("/api/resources"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$", hasSize(0)));
+            .andExpect(jsonPath("$.content", hasSize(0)));
     }
 
     @Test

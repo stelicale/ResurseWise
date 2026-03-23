@@ -48,7 +48,7 @@ class LogControllerIntegrationTest {
 
         mockMvc.perform(get("/api/logs"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$", hasSize(greaterThanOrEqualTo(2))));
+            .andExpect(jsonPath("$.content", hasSize(greaterThanOrEqualTo(2))));
     }
 
     @Test
@@ -67,8 +67,8 @@ class LogControllerIntegrationTest {
 
         mockMvc.perform(get("/api/logs").param("timeAgo", "2h"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$", hasSize(1)))
-                .andExpect(jsonPath("$[0].actionType", is("CREATE")));
+            .andExpect(jsonPath("$.content", hasSize(1)))
+            .andExpect(jsonPath("$.content[0].actionType", is("CREATE")));
     }
 
     @Test
@@ -81,8 +81,8 @@ class LogControllerIntegrationTest {
 
         mockMvc.perform(get("/api/logs").param("timeAgo", "1d"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$", hasSize(1)))
-                .andExpect(jsonPath("$[0].actionType", is("CREATE")));
+            .andExpect(jsonPath("$.content", hasSize(1)))
+            .andExpect(jsonPath("$.content[0].actionType", is("CREATE")));
     }
 
     @Test
@@ -119,7 +119,7 @@ class LogControllerIntegrationTest {
 
         mockMvc.perform(get("/api/logs").param("timeAgo", "1h"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$", hasSize(0)));
+            .andExpect(jsonPath("$.content", hasSize(0)));
     }
 
     @Test
@@ -132,7 +132,7 @@ class LogControllerIntegrationTest {
 
         mockMvc.perform(get("/api/logs").param("timeAgo", "30d"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$", hasSize(1)));
+            .andExpect(jsonPath("$.content", hasSize(1)));
     }
 
     @Test
@@ -145,6 +145,6 @@ class LogControllerIntegrationTest {
 
         mockMvc.perform(get("/api/logs").param("timeAgo", "1h"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$", hasSize(1)));
+            .andExpect(jsonPath("$.content", hasSize(1)));
     }
 }
