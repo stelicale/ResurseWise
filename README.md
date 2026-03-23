@@ -49,6 +49,52 @@ npm run lint       # Check for lint errors
 npm run format     # Format code with Prettier
 ```
 
+## Docker: Static Build + Nginx
+
+The frontend is containerized with a multi-stage Docker build:
+
+1. Build stage (`node:20-alpine`) runs `npm ci` and `npm run build`.
+2. Runtime stage (`nginx:alpine`) serves the generated static files from `/usr/share/nginx/html`.
+
+### Build image
+
+```bash
+cd frontend/my-frontend
+docker build -t dvloper-frontend:local .
+```
+
+### Run container
+
+```bash
+docker run --rm -p 8088:80 dvloper-frontend:local
+```
+
+Open `http://localhost:8088` in the browser.
+
+### Notes
+
+- Container exposes only port `80`.
+- Nginx is configured for SPA fallback (`/index.html`) so React routes work on refresh.
+- Static assets under `/static/` are cached aggressively for performance.
+
+## Run Entire Stack with Compose
+
+From repository root, start frontend + backend + database (and Keycloak dependency):
+
+```bash
+docker compose --env-file backend/.env up -d --build
+```
+
+Then open:
+
+* `http://localhost:8088`
+
+Stop stack:
+
+```bash
+docker compose --env-file backend/.env down
+```
+
 ---
 
 ## Architecture
