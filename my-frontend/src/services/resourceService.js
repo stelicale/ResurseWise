@@ -8,6 +8,17 @@ import { toast } from 'react-toastify';
 
 const RESOURCE_ENDPOINT = '/resources';
 
+const toList = (data) => (Array.isArray(data) ? data : (data?.content || []));
+
+const buildQueryString = (params = {}) => {
+  const qp = new URLSearchParams();
+  Object.entries(params).forEach(([k, v]) => {
+    if (v === undefined || v === null || v === '') return;
+    qp.append(k, String(v));
+  });
+  return qp.toString();
+};
+
 export const resourceService = {
   /**
    * Get all resources
@@ -16,9 +27,44 @@ export const resourceService = {
   getAllResources: async () => {
     try {
       const data = await apiService.get(RESOURCE_ENDPOINT);
-      return data;
+      return toList(data);
     } catch (error) {
       console.error('Error fetching resources:', error);
+      throw error;
+    }
+  },
+
+  getResourcesPage: async (params = {}) => {
+    try {
+      const qs = buildQueryString(params);
+      const data = await apiService.get(`${RESOURCE_ENDPOINT}${qs ? `?${qs}` : ''}`);
+      if (Array.isArray(data)) {
+        return {
+          content: data,
+          page: 0,
+          size: data.length,
+          totalElements: data.length,
+          totalPages: 1,
+        };
+      }
+      return data;
+    } catch (error) {
+      console.error('Error fetching paged resources:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get a single resource by ID
+   * @param {string} id - Resource UUID
+   * @returns {Promise<Object>} Resource object
+   */
+  getResourceById: async (id) => {
+    try {
+      const data = await apiService.get(`${RESOURCE_ENDPOINT}/${id}`);
+      return data;
+    } catch (error) {
+      console.error(`Error fetching resource ${id}:`, error);
       throw error;
     }
   },

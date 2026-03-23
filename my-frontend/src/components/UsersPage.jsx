@@ -2,7 +2,6 @@ import React, { useEffect, useState, useCallback } from 'react';
 import DataTable from './DataTable';
 import Modal, { FormField, FormActions, inputStyle } from './Modal';
 import { userService } from '../services/userService';
-import { useData } from '../context/DataContext';
 import { toast } from 'react-toastify';
 
 const EMPTY_FORM = {
@@ -15,36 +14,50 @@ const EMPTY_FORM = {
 };
 
 const UsersPage = ({ isAdmin }) => {
-  const { fetchUsers, invalidate } = useData();
   const [users, setUsers] = useState([]);
   const [availableRoles, setAvailableRoles] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [totalItems, setTotalItems] = useState(0);
+  const [query, setQuery] = useState({ page: 0, size: 10, sortBy: null, sortDir: 'asc', filters: {} });
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
 
-  const load = useCallback(async (force = false) => {
+  const load = useCallback(async (q = query) => {
     setLoading(true);
     try {
+      const params = {
+        page: q.page,
+        size: q.size,
+        sortBy: q.sortBy === 'fullName' ? 'name' : (q.sortBy === 'idDisplay' ? 'id' : q.sortBy),
+        sortDir: q.sortDir,
+        id: q.filters?.id,
+        username: q.filters?.username,
+        email: q.filters?.email,
+        name: q.filters?.name,
+      };
+
       const [data, roles] = await Promise.all([
-        fetchUsers(force),
+        userService.getUsersPage(params),
         userService.getAvailableRoles().catch(() => []),
       ]);
-      setUsers(data || []);
+      setUsers(data?.content || []);
+      setTotalItems(data?.totalElements || 0);
       setAvailableRoles(roles || []);
     } catch {
       toast.error('Failed to load users');
     } finally {
       setLoading(false);
     }
-  }, [fetchUsers]);
+  }, [query]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { load(query); }, [query, load]);
 
   const flatUsers = users.map((u) => ({
     ...u,
+    idDisplay: u.id || '—',
     rolesDisplay: Array.isArray(u.roles) ? u.roles.map((r) => (typeof r === 'string' ? r : r.name)).join(', ') : '—',
     fullName: [u.firstName, u.lastName].filter(Boolean).join(' ') || '—',
   }));
@@ -92,8 +105,7 @@ const UsersPage = ({ isAdmin }) => {
         if (!form.password.trim()) { toast.error('Password is required for new users'); setSaving(false); return; }
         await userService.createUser(payload);
       }
-      invalidate('users');
-      await load(true);
+      await load(query);
       closeModal();
     } catch {
       // toast shown by service
@@ -106,8 +118,7 @@ const UsersPage = ({ isAdmin }) => {
     if (!deleteTarget) return;
     try {
       await userService.deleteUser(deleteTarget.id);
-      invalidate('users');
-      await load(true);
+      await load(query);
     } catch {
       // toast shown by service
     } finally {
@@ -116,6 +127,7 @@ const UsersPage = ({ isAdmin }) => {
   };
 
   const columns = [
+    { key: 'idDisplay', label: 'ID', sortable: true },
     { key: 'username', label: 'Username', sortable: true },
     { key: 'fullName', label: 'Full Name', sortable: true },
     { key: 'email', label: 'Email', sortable: true },
@@ -150,10 +162,18 @@ const UsersPage = ({ isAdmin }) => {
   ];
 
   const filters = [
+    { key: 'id', label: 'ID', type: 'text' },
     { key: 'username', label: 'Username', type: 'text' },
     { key: 'email', label: 'Email', type: 'text' },
-    { key: 'fullName', label: 'Name', type: 'text' },
+    { key: 'name', label: 'Name', type: 'text' },
   ];
+
+  const handleServerQueryChange = useCallback((next) => {
+    setQuery((prev) => {
+      const same = JSON.stringify(prev) === JSON.stringify(next);
+      return same ? prev : next;
+    });
+  }, []);
 
   const f = (key) => (e) => setForm((prev) => ({ ...prev, [key]: e.target.value }));
 
@@ -165,6 +185,9 @@ const UsersPage = ({ isAdmin }) => {
         data={flatUsers}
         filters={filters}
         loading={loading}
+        serverMode
+        totalItems={totalItems}
+        onQueryChange={handleServerQueryChange}
         isAdmin={isAdmin}
         actions={{
           onAdd: openAdd,

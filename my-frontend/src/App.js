@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { BrowserRouter, Navigate, Route, Routes, useNavigate } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import ConnectionTest from './components/ConnectionTest';
@@ -10,14 +10,21 @@ import CategoriesPage from './components/CategoriesPage';
 import UsersPage from './components/UsersPage';
 import LogsPage from './components/LogsPage';
 import LandingPage from './components/LandingPage';
+import AuthCallback from './components/AuthCallback';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { DataProvider } from './context/DataContext';
 import './App.css';
 
 const AppContent = () => {
-  const { isInitialized, isAuthenticated, isAdmin } = useAuth();
-  const navigate = useNavigate();
+  const { isInitialized, isAuthenticated, isAdmin, username, roles, login } = useAuth();
+  const location = useLocation();
   const [testOpen, setTestOpen] = useState(false);
+
+  useEffect(() => {
+    if (isInitialized && !isAuthenticated && location.pathname !== '/auth-callback') {
+      login();
+    }
+  }, [isInitialized, isAuthenticated, login, location.pathname]);
 
   if (!isInitialized) {
     return (
@@ -30,19 +37,15 @@ const AppContent = () => {
   return (
     <div className="App">
 
-      {/* ── Navbar (consistently rendered on every page) ── */}
-      <Navbar />
+      {/* ── Navbar (authenticated app only) ── */}
+      {isAuthenticated && <Navbar />}
 
       {/* ── Route-based page content ── */}
       <Routes>
+        <Route path="/auth-callback" element={<AuthCallback />} />
         <Route
           path="/"
-          element={
-            <LandingPage
-              isAuthenticated={isAuthenticated}
-              onGetStarted={() => navigate('/resources')}
-            />
-          }
+          element={<LandingPage isAuthenticated={isAuthenticated} />}
         />
         <Route
           path="/resources"
@@ -119,7 +122,7 @@ const AppContent = () => {
             <span style={{ fontSize: '14px', fontWeight: '600', color: '#94a3b8' }}>API Test Suite</span>
             <button onClick={() => setTestOpen(false)} style={{ background: 'none', border: 'none', color: '#475569', fontSize: '18px', cursor: 'pointer', lineHeight: 1 }}>×</button>
           </div>
-          <ConnectionTest isAuthenticated={isAuthenticated} />
+          <ConnectionTest isAuthenticated={isAuthenticated} isAdmin={isAdmin} username={username} roles={roles} />
         </div>
       )}
 

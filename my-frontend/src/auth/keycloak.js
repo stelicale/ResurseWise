@@ -5,12 +5,38 @@ const keycloakConfig = {
 };
 
 const proxyPrefix = process.env.REACT_APP_KEYCLOAK_PROXY_PREFIX || '/keycloak';
+const keycloakPublicBaseUrl = (
+  process.env.REACT_APP_KEYCLOAK_URL || `${window.location.origin}${proxyPrefix}`
+).replace(/\/$/, '');
 const tokenEndpoint = `${proxyPrefix}/realms/${keycloakConfig.realm}/protocol/openid-connect/token`;
+const authorizationEndpoint = `${keycloakPublicBaseUrl}/realms/${keycloakConfig.realm}/protocol/openid-connect/auth`;
+const logoutEndpoint = `${keycloakPublicBaseUrl}/realms/${keycloakConfig.realm}/protocol/openid-connect/logout`;
+const redirectUri = `${window.location.origin}/auth-callback`;
+const postLogoutRedirectUri = `${window.location.origin}/`;
+
+const toBase64Url = (bytes) =>
+  btoa(String.fromCharCode(...bytes))
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=/g, '');
+
+const generateCodeVerifier = () => {
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  return toBase64Url(bytes);
+};
+
+const generateCodeChallenge = async (verifier) => {
+  const data = new TextEncoder().encode(verifier);
+  const digest = await crypto.subtle.digest('SHA-256', data);
+  return toBase64Url(new Uint8Array(digest));
+};
 
 let isInitialized = false;
 let accessToken = null;
 let refreshTokenValue = null;
 let tokenParsed = null;
+let refreshPromise = null;
 const authStateSubscribers = new Set();
 
 const notifyAuthSubscribers = () => {
@@ -32,8 +58,9 @@ const parseJwt = (token) => {
     }
 
     const base64 = payload.replace(/-/g, '+').replace(/_/g, '/');
+    const paddedBase64 = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), '=');
     const jsonPayload = decodeURIComponent(
-      atob(base64)
+      atob(paddedBase64)
         .split('')
         .map((char) => `%${`00${char.charCodeAt(0).toString(16)}`.slice(-2)}`)
         .join('')
@@ -79,8 +106,16 @@ const requestToken = async (bodyPayload) => {
     body: buildTokenRequestBody(bodyPayload),
   });
 
+  const contentType = response.headers.get('content-type') || '';
+
   if (!response.ok) {
-    throw new Error('Authentication request failed');
+    const errorBody = await response.text();
+    throw new Error(`Authentication request failed (${response.status}): ${errorBody.slice(0, 120)}`);
+  }
+
+  if (!contentType.includes('application/json')) {
+    const nonJsonBody = await response.text();
+    throw new Error(`Authentication endpoint returned non-JSON response: ${nonJsonBody.slice(0, 120)}`);
   }
 
   return response.json();
@@ -113,19 +148,42 @@ export const initKeycloak = async () => {
   return false;
 };
 
-export const login = async ({ username, password }) => {
-  if (!username || !password) {
-    throw new Error('Username and password are required');
+export const login = async () => {
+  const codeVerifier = generateCodeVerifier();
+  const codeChallenge = await generateCodeChallenge(codeVerifier);
+
+  sessionStorage.setItem('pkce_verifier', codeVerifier);
+
+  const params = new URLSearchParams({
+    client_id: keycloakConfig.clientId,
+    redirect_uri: redirectUri,
+    response_type: 'code',
+    scope: 'openid profile email',
+    prompt: 'login',
+    max_age: '0',
+    code_challenge: codeChallenge,
+    code_challenge_method: 'S256',
+  });
+
+  window.location.href = `${authorizationEndpoint}?${params.toString()}`;
+};
+
+export const handleAuthCallback = async (code) => {
+  const codeVerifier = sessionStorage.getItem('pkce_verifier');
+
+  if (!code || !codeVerifier) {
+    throw new Error('Missing authorization code or PKCE verifier');
   }
 
   const tokenData = await requestToken({
-    grant_type: 'password',
-    username,
-    password,
-    scope: 'openid',
+    grant_type: 'authorization_code',
+    code,
+    redirect_uri: redirectUri,
+    code_verifier: codeVerifier,
   });
 
   setStoredTokens(tokenData);
+  sessionStorage.removeItem('pkce_verifier');
   notifyAuthSubscribers();
   return true;
 };
@@ -133,6 +191,13 @@ export const login = async ({ username, password }) => {
 export const logout = () => {
   clearStoredTokens();
   notifyAuthSubscribers();
+
+  const params = new URLSearchParams({
+    post_logout_redirect_uri: postLogoutRedirectUri,
+    client_id: keycloakConfig.clientId,
+  });
+
+  window.location.href = `${logoutEndpoint}?${params.toString()}`;
 };
 
 export const getToken = () => accessToken;
@@ -149,26 +214,36 @@ export const refreshToken = async (minValidity = 30) => {
     return accessToken;
   }
 
+  if (refreshPromise) {
+    return refreshPromise;
+  }
+
   if (!refreshTokenValue) {
     clearStoredTokens();
     notifyAuthSubscribers();
     return null;
   }
 
-  try {
-    const tokenData = await requestToken({
-      grant_type: 'refresh_token',
-      refresh_token: refreshTokenValue,
-    });
+  refreshPromise = (async () => {
+    try {
+      const tokenData = await requestToken({
+        grant_type: 'refresh_token',
+        refresh_token: refreshTokenValue,
+      });
 
-    setStoredTokens(tokenData);
-    notifyAuthSubscribers();
-    return accessToken;
-  } catch (error) {
-    clearStoredTokens();
-    notifyAuthSubscribers();
-    return null;
-  }
+      setStoredTokens(tokenData);
+      notifyAuthSubscribers();
+      return accessToken;
+    } catch (error) {
+      clearStoredTokens();
+      notifyAuthSubscribers();
+      return null;
+    } finally {
+      refreshPromise = null;
+    }
+  })();
+
+  return refreshPromise;
 };
 
 export const getUserRoles = () => {
@@ -176,4 +251,7 @@ export const getUserRoles = () => {
   return Array.isArray(roles) ? roles : [];
 };
 
-export const hasRole = (role) => getUserRoles().includes(role);
+export const hasRole = (role) => {
+  const expected = String(role || '').toLowerCase();
+  return getUserRoles().some((current) => String(current).toLowerCase() === expected);
+};

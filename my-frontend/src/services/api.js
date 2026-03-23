@@ -6,10 +6,10 @@
  */
 import axios from 'axios';
 import { toast } from 'react-toastify';
-import { refreshToken } from '../auth/keycloak';
+import { getToken } from '../auth/keycloak';
 
 // Base API URL from environment variables
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8080/api';
+const API_BASE_URL = process.env.REACT_APP_API_URL || '/api';
 
 /**
  * Axios instance with default configuration
@@ -27,8 +27,8 @@ const apiClient = axios.create({
  * Add authentication token to requests if available
  */
 apiClient.interceptors.request.use(
-  async (config) => {
-    const token = await refreshToken(30);
+  (config) => {
+    const token = getToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }

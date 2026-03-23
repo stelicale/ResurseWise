@@ -8,6 +8,17 @@ import { toast } from 'react-toastify';
 
 const USER_ENDPOINT = '/users';
 
+const toList = (data) => (Array.isArray(data) ? data : (data?.content || []));
+
+const buildQueryString = (params = {}) => {
+  const qp = new URLSearchParams();
+  Object.entries(params).forEach(([k, v]) => {
+    if (v === undefined || v === null || v === '') return;
+    qp.append(k, String(v));
+  });
+  return qp.toString();
+};
+
 export const userService = {
   /**
    * Get all users
@@ -16,9 +27,29 @@ export const userService = {
   getAllUsers: async () => {
     try {
       const data = await apiService.get(USER_ENDPOINT);
-      return data;
+      return toList(data);
     } catch (error) {
       console.error('Error fetching users:', error);
+      throw error;
+    }
+  },
+
+  getUsersPage: async (params = {}) => {
+    try {
+      const qs = buildQueryString(params);
+      const data = await apiService.get(`${USER_ENDPOINT}${qs ? `?${qs}` : ''}`);
+      if (Array.isArray(data)) {
+        return {
+          content: data,
+          page: 0,
+          size: data.length,
+          totalElements: data.length,
+          totalPages: 1,
+        };
+      }
+      return data;
+    } catch (error) {
+      console.error('Error fetching paged users:', error);
       throw error;
     }
   },

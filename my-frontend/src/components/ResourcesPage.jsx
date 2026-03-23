@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import DataTable from './DataTable';
 import Modal, { FormField, FormActions, inputStyle } from './Modal';
 import { resourceService } from '../services/resourceService';
-import { useData } from '../context/DataContext';
+import { categoryService } from '../services/categoryService';
 import { toast } from 'react-toastify';
 
 const STATUS_OPTIONS = [
@@ -49,30 +49,53 @@ const statusBadge = (status) => {
 };
 
 const ResourcesPage = ({ isAdmin }) => {
-  const { fetchResources, fetchCategories, invalidate } = useData();
   const [resources, setResources] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [totalItems, setTotalItems] = useState(0);
+  const [query, setQuery] = useState({ page: 0, size: 10, sortBy: null, sortDir: 'asc', filters: {} });
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
 
-  const load = useCallback(async (force = false) => {
+  const load = useCallback(async (q = query) => {
     setLoading(true);
     try {
-      const [res, cats] = await Promise.all([fetchResources(force), fetchCategories(force)]);
-      setResources(res || []);
-      setCategories(cats || []);
+      const params = {
+        page: q.page,
+        size: q.size,
+        sortBy: q.sortBy,
+        sortDir: q.sortDir,
+        name: q.filters?.name,
+        model: q.filters?.model,
+        serialNumber: q.filters?.serialNumber,
+        status: q.filters?.status,
+        location: q.filters?.location,
+        categoryName: q.filters?.categoryName,
+      };
+      const pageData = await resourceService.getResourcesPage(params);
+      setResources(pageData?.content || []);
+      setTotalItems(pageData?.totalElements || 0);
     } catch {
       toast.error('Failed to load resources');
     } finally {
       setLoading(false);
     }
-  }, [fetchResources, fetchCategories]);
+  }, [query]);
 
-  useEffect(() => { load(); }, [load]);
+  const loadCategories = useCallback(async () => {
+    try {
+      const cats = await categoryService.getAllCategories();
+      setCategories(cats || []);
+    } catch {
+      setCategories([]);
+    }
+  }, []);
+
+  useEffect(() => { load(query); }, [query, load]);
+  useEffect(() => { loadCategories(); }, [loadCategories]);
 
   // Flatten category name for display / filtering
   const flatResources = resources.map((r) => ({
@@ -124,8 +147,7 @@ const ResourcesPage = ({ isAdmin }) => {
       } else {
         await resourceService.createResource(buildPayload());
       }
-      invalidate('resources');
-      await load(true);
+      await load(query);
       closeModal();
     } catch {
       // toast shown by service
@@ -139,8 +161,7 @@ const ResourcesPage = ({ isAdmin }) => {
     try {
       await resourceService.deleteResource(deleteTarget.id);
       toast.success('Resource deleted');
-      invalidate('resources');
-      await load(true);
+      await load(query);
     } catch (err) {
       const msg = err?.response?.data?.message || err?.message || 'Failed to delete resource';
       if (err?.response?.status === 500) {
@@ -187,6 +208,13 @@ const ResourcesPage = ({ isAdmin }) => {
     { key: 'location', label: 'Location', type: 'text' },
   ];
 
+  const handleServerQueryChange = useCallback((next) => {
+    setQuery((prev) => {
+      const same = JSON.stringify(prev) === JSON.stringify(next);
+      return same ? prev : next;
+    });
+  }, []);
+
   const f = (key) => (e) => setForm((prev) => ({ ...prev, [key]: e.target.value }));
 
   return (
@@ -197,6 +225,9 @@ const ResourcesPage = ({ isAdmin }) => {
         data={flatResources}
         filters={filters}
         loading={loading}
+        serverMode
+        totalItems={totalItems}
+        onQueryChange={handleServerQueryChange}
         isAdmin={isAdmin}
         actions={{
           onAdd: openAdd,

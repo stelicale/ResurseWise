@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 
 /**
  * DataTable — reusable table with sorting, filtering, and pagination.
@@ -25,6 +25,9 @@ const DataTable = ({
   title = '',
   isAdmin = false,
   emptyMessage = 'No records found.',
+  serverMode = false,
+  totalItems = 0,
+  onQueryChange,
 }) => {
   const [filterValues, setFilterValues] = useState({});
   const [sortKey, setSortKey] = useState(null);
@@ -34,6 +37,7 @@ const DataTable = ({
 
   // Filtering
   const filtered = useMemo(() => {
+    if (serverMode) return data;
     let rows = data;
     for (const f of filters) {
       const val = filterValues[f.key];
@@ -50,6 +54,7 @@ const DataTable = ({
 
   // Sorting
   const sorted = useMemo(() => {
+    if (serverMode) return filtered;
     if (!sortKey) return filtered;
     return [...filtered].sort((a, b) => {
       const av = a[sortKey] ?? '';
@@ -60,9 +65,10 @@ const DataTable = ({
   }, [filtered, sortKey, sortDir]);
 
   // Pagination
-  const totalPages = Math.max(1, Math.ceil(sorted.length / pageSize));
+  const effectiveTotal = serverMode ? totalItems : sorted.length;
+  const totalPages = Math.max(1, Math.ceil(Math.max(effectiveTotal, 0) / pageSize));
   const clampedPage = Math.min(page, totalPages);
-  const paginated = sorted.slice((clampedPage - 1) * pageSize, clampedPage * pageSize);
+  const paginated = serverMode ? data : sorted.slice((clampedPage - 1) * pageSize, clampedPage * pageSize);
 
   const handleSort = (key) => {
     if (sortKey === key) {
@@ -83,6 +89,17 @@ const DataTable = ({
     setPageSize(Number(e.target.value));
     setPage(1);
   };
+
+  useEffect(() => {
+    if (!serverMode || !onQueryChange) return;
+    onQueryChange({
+      page: clampedPage - 1,
+      size: pageSize,
+      sortBy: sortKey,
+      sortDir,
+      filters: filterValues,
+    });
+  }, [serverMode, onQueryChange, clampedPage, pageSize, sortKey, sortDir, filterValues]);
 
   const pageNumbers = () => {
     const delta = 2;
@@ -176,7 +193,7 @@ const DataTable = ({
       fontSize: '12px',
       textTransform: 'uppercase',
       letterSpacing: '0.05em',
-      textAlign: 'left',
+      textAlign: 'center',
       borderBottom: '1px solid #334155',
       whiteSpace: 'nowrap',
       userSelect: 'none',
@@ -337,6 +354,7 @@ const DataTable = ({
                     ...s.th,
                     ...(col.sortable ? s.thSortable : {}),
                     width: col.width || undefined,
+                    textAlign: 'center',
                   }}
                   onClick={col.sortable ? () => handleSort(col.key) : undefined}
                 >
@@ -352,7 +370,7 @@ const DataTable = ({
                 </th>
               ))}
               {(actions.onEdit || actions.onDelete) && isAdmin && (
-                <th style={{ ...s.th, width: '100px' }}>Actions</th>
+                <th style={{ ...s.th, width: '100px', textAlign: 'center' }}>Actions</th>
               )}
             </tr>
           </thead>
@@ -388,10 +406,10 @@ const DataTable = ({
       {/* Footer: count + pagination + page size */}
       <div style={s.footer}>
         <span style={s.footerInfo}>
-          {sorted.length === 0
+          {effectiveTotal === 0
             ? 'No records'
-            : `Showing ${(clampedPage - 1) * pageSize + 1}–${Math.min(clampedPage * pageSize, sorted.length)} of ${sorted.length}`}
-          {data.length !== sorted.length && ` (filtered from ${data.length})`}
+            : `Showing ${(clampedPage - 1) * pageSize + 1}–${Math.min(clampedPage * pageSize, effectiveTotal)} of ${effectiveTotal}`}
+          {!serverMode && data.length !== sorted.length && ` (filtered from ${data.length})`}
         </span>
 
         {totalPages > 1 && (

@@ -1,15 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { useAuth } from '../context/AuthContext';
 import { NAV_ROUTES } from '../config/routes';
 
 const Navbar = () => {
   const { isAuthenticated, isAdmin, username, login, logout } = useAuth();
-  const navigate = useNavigate();
   const location = useLocation();
 
-  const [loginForm, setLoginForm] = useState({ username: '', password: '' });
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -19,24 +17,16 @@ const Navbar = () => {
   }, [location.pathname]);
 
   const handleLogin = async () => {
-    if (!loginForm.username || !loginForm.password) {
-      toast.error('Please enter your username and password.');
-      return;
-    }
     try {
       setIsLoggingIn(true);
-      await login(loginForm);
-      setLoginForm({ username: '', password: '' });
-      navigate('/resources');
+      await login();
     } catch {
-      toast.error('Login failed. Check your credentials or Keycloak connection.');
+      toast.error('Redirect to Keycloak failed. Check Keycloak configuration.');
     } finally {
       setIsLoggingIn(false);
     }
   };
-
-  const handleKeyDown = (e) => { if (e.key === 'Enter') handleLogin(); };
-  const handleLogout = () => { logout(); navigate('/'); };
+  const handleLogout = () => { logout(); };
 
   const visibleRoutes = NAV_ROUTES.filter((r) => !r.adminOnly || isAdmin);
 
@@ -115,38 +105,26 @@ const Navbar = () => {
               </button>
             </>
           ) : (
-            <>
-              <input
-                type="text"
-                placeholder="Username"
-                value={loginForm.username}
-                onChange={(e) => setLoginForm((p) => ({ ...p, username: e.target.value }))}
-                onKeyDown={handleKeyDown}
-                className="app-login-input"
-                style={{ borderRadius: '6px', border: '1px solid #334155', backgroundColor: '#1e293b', color: '#f1f5f9' }}
-              />
-              <input
-                type="password"
-                placeholder="Password"
-                value={loginForm.password}
-                onChange={(e) => setLoginForm((p) => ({ ...p, password: e.target.value }))}
-                onKeyDown={handleKeyDown}
-                className="app-login-input"
-                style={{ borderRadius: '6px', border: '1px solid #334155', backgroundColor: '#1e293b', color: '#f1f5f9' }}
-              />
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
               <button
                 onClick={handleLogin}
                 disabled={isLoggingIn}
                 style={{
-                  padding: '7px 14px', borderRadius: '6px', border: 'none',
+                  padding: '8px 16px',
+                  borderRadius: '6px',
+                  border: 'none',
                   backgroundColor: isLoggingIn ? '#475569' : '#3b82f6',
-                  color: '#fff', cursor: isLoggingIn ? 'not-allowed' : 'pointer',
-                  fontWeight: '600', fontSize: '13px',
+                  color: '#fff',
+                  cursor: isLoggingIn ? 'not-allowed' : 'pointer',
+                  fontWeight: '600',
+                  fontSize: '13px',
+                  transition: 'background-color 0.2s',
+                  whiteSpace: 'nowrap',
                 }}
               >
-                {isLoggingIn ? 'Logging in…' : 'Login'}
+                {isLoggingIn ? 'Signing in…' : 'Sign in'}
               </button>
-            </>
+            </div>
           )}
         </div>
       </div>

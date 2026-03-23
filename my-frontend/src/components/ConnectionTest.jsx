@@ -3,19 +3,53 @@ import { categoryService } from '../services/categoryService';
 import { resourceService } from '../services/resourceService';
 import { userService } from '../services/userService';
 import { logService } from '../services/logService';
-import { getToken } from '../auth/keycloak';
+import { getUserRoles, refreshToken } from '../auth/keycloak';
 import { useData } from '../context/DataContext';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8080/api';
-const BACKEND_BASE_URL = API_BASE_URL.replace(/\/api\/?$/, '');
-
-const statusForError = (status, successMessage) => {
-  if (status === 403) return { label: '⛔ FORBIDDEN', detail: 'Insufficient role – this operation requires Admin role', success: false };
-  if (status === 401) return { label: '⚠️ UNAUTHORIZED', detail: 'Invalid or expired token', success: false };
-  return { label: '❌ FAILED', detail: successMessage, success: false };
+const statusForError = (status, detail) => {
+  if (status === 403) return { label: '⛔ FORBIDDEN', detail: detail || 'Insufficient role – this operation requires Admin role', success: false };
+  if (status === 401) return { label: '⚠️ UNAUTHORIZED', detail: detail || 'Invalid or expired token', success: false };
+  return { label: '❌ FAILED', detail, success: false };
 };
 
-const ConnectionTest = ({ isAuthenticated }) => {
+const backendMessage = (error) => {
+  const status = error?.response?.status;
+  const url = error?.config?.url;
+  const server = error?.response?.headers?.server;
+
+  const detailsSuffix = [
+    status ? `status=${status}` : null,
+    url ? `url=${url}` : null,
+    server ? `server=${server}` : null,
+  ].filter(Boolean).join(' | ');
+
+  if (error?.response?.data?.message) {
+    return detailsSuffix
+      ? `${error.response.data.message} | ${detailsSuffix}`
+      : error.response.data.message;
+  }
+  if (error?.response?.data?.details) {
+    return detailsSuffix
+      ? `${error.response.data.details} | ${detailsSuffix}`
+      : error.response.data.details;
+  }
+  if (error?.response?.data?.error) {
+    return detailsSuffix
+      ? `${error.response.data.error} | ${detailsSuffix}`
+      : error.response.data.error;
+  }
+  const base = error?.message || 'Unknown error';
+  return detailsSuffix ? `${base} | ${detailsSuffix}` : base;
+};
+
+const skippedResult = (name, detail) => ({
+  name,
+  status: '⏭ SKIPPED',
+  detail,
+  success: false,
+});
+
+const ConnectionTest = ({ isAuthenticated, isAdmin, username, roles }) => {
   const [testResult, setTestResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const { fetchCategories, fetchResources, invalidate } = useData();
@@ -33,84 +67,50 @@ const ConnectionTest = ({ isAuthenticated }) => {
       tests: []
     };
 
+    await refreshToken(0);
+    const tokenRoles = getUserRoles();
+    const tokenRolesText = tokenRoles.length ? tokenRoles.join(', ') : 'none';
     let testCategoryId = null;
     let testResourceId = null;
     let testUserId = null;
+    let usersForFallbackRead = [];
 
-    // Test 1: Backend Health Check (base URL)
-    try {
-      const response = await fetch(`${BACKEND_BASE_URL}/`);
-      const text = await response.text();
-      results.tests.push({
-        name: 'Backend Health Check',
-        status: response.ok ? '✅ SUCCESS' : '❌ FAILED',
-        detail: `Status: ${response.status} | Response: "${text}"`,
-        success: response.ok
-      });
-    } catch (error) {
-      results.tests.push({
-        name: 'Backend Health Check',
-        status: '❌ FAILED',
-        detail: `Error: ${error.message}`,
-        success: false
-      });
-    }
+    let categoriesForFallbackRead = [];
+    let resourcesForFallbackRead = [];
 
-    // Test 2: API Base URL Check (using real endpoint)
+    // Test 1: GET Categories (force network call, no cache)
     try {
-      const token = getToken();
-      const headers = token ? {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      } : {};
-      const response = await fetch(`${API_BASE_URL}/categories`, { headers });
-      const isSuccess = response.ok || response.status === 401;
+      const data = await fetchCategories(true);
+      categoriesForFallbackRead = Array.isArray(data) ? data : [];
       results.tests.push({
-        name: 'API Endpoint Check',
-        status: response.ok ? '✅ SUCCESS' : (response.status === 401 ? '⚠️ AUTH REQUIRED' : '❌ FAILED'),
-        detail: `Status: ${response.status} - ${response.ok ? 'API accessible' : response.status === 401 ? 'Authentication required' : 'Error'}`,
-        success: isSuccess
-      });
-    } catch (error) {
-      results.tests.push({
-        name: 'API Endpoint Check',
-        status: '❌ FAILED',
-        detail: `Error: ${error.message}`,
-        success: false
-      });
-    }
-
-    // Test 3: Categories API (GET) — uses DataContext cache (TTL 2 min)
-    try {
-      const data = await fetchCategories();
-      results.tests.push({
-        name: 'Categories API (GET)',
+        name: 'GET Categories',
         status: '✅ SUCCESS',
-        detail: `Retrieved ${data.length} categories (cached)`,
+        detail: `Retrieved ${data.length} categories`,
         success: true
       });
     } catch (error) {
       const s = error.response?.status || 'Unknown';
       const r = statusForError(s, error.message);
-      results.tests.push({ name: 'Categories API (GET)', status: r.label, detail: r.detail, success: r.success });
+      results.tests.push({ name: 'GET Categories', status: r.label, detail: r.detail, success: r.success });
     }
 
-    // Test 4: Resources API (GET) — uses DataContext cache (TTL 2 min)
+    // Test 2: GET Resources (force network call, no cache)
     try {
-      const data = await fetchResources();
+      const data = await fetchResources(true);
+      resourcesForFallbackRead = Array.isArray(data) ? data : [];
       results.tests.push({
-        name: 'Resources API (GET)',
+        name: 'GET Resources',
         status: '✅ SUCCESS',
-        detail: `Retrieved ${data.length} resources (cached)`,
+        detail: `Retrieved ${data.length} resources`,
         success: true
       });
     } catch (error) {
       const s = error.response?.status || 'Unknown';
       const r = statusForError(s, error.message);
-      results.tests.push({ name: 'Resources API (GET)', status: r.label, detail: r.detail, success: r.success });
+      results.tests.push({ name: 'GET Resources', status: r.label, detail: r.detail, success: r.success });
     }
 
-    // Test 5: CREATE Category
+    // Test 3: POST Category
     try {
       const newCategory = {
         name: 'Test Category ' + Date.now(),
@@ -120,85 +120,121 @@ const ConnectionTest = ({ isAuthenticated }) => {
       testCategoryId = created.id;
       invalidate('categories');
       results.tests.push({
-        name: 'CREATE Category',
+        name: 'POST Category',
         status: '✅ SUCCESS',
         detail: `Created category with ID: ${created.id}`,
         success: true
       });
     } catch (error) {
       const s = error.response?.status || 'Unknown';
-      const r = statusForError(s, error.message);
-      results.tests.push({ name: 'CREATE Category', status: r.label, detail: r.detail, success: r.success });
+      const detail = s === 403
+        ? `${backendMessage(error)} | Roles(token): ${tokenRolesText}`
+        : backendMessage(error);
+      const r = statusForError(s, detail);
+      results.tests.push({ name: 'POST Category', status: r.label, detail: r.detail, success: r.success });
     }
 
-    // Test 6: READ Category by ID (if created)
-    if (testCategoryId) {
+    // Test 4: GET Category by ID
+    // If POST failed, fallback to an existing category so GET can still be validated.
+    const categoryIdForRead = testCategoryId || categoriesForFallbackRead?.[0]?.id;
+    if (categoryIdForRead) {
       try {
-        const category = await categoryService.getCategoryById(testCategoryId);
+        const category = await categoryService.getCategoryById(categoryIdForRead);
+        const readSource = testCategoryId ? 'created in this run' : 'existing category';
         results.tests.push({
-          name: 'READ Category by ID',
+          name: 'GET Category by ID',
           status: '✅ SUCCESS',
-          detail: `Retrieved: ${category.name}`,
+          detail: `Retrieved: ${category.name} (${readSource})`,
           success: true
         });
       } catch (error) {
         const s = error.response?.status || 'Unknown';
-        const r = statusForError(s, error.message);
-        results.tests.push({ name: 'READ Category by ID', status: r.label, detail: r.detail, success: r.success });
+        const r = statusForError(s, backendMessage(error));
+        results.tests.push({ name: 'GET Category by ID', status: r.label, detail: r.detail, success: r.success });
       }
+    } else {
+      results.tests.push(skippedResult('GET Category by ID', 'Skipped because no category is available to read (POST failed and list is empty).'));
     }
 
-    // Test 7: UPDATE Category (if created)
+    // Test 5: PUT Category (if created)
     if (testCategoryId) {
       try {
         const updatedData = { name: 'Updated Test Category', description: 'Updated description' };
         const updated = await categoryService.updateCategory(testCategoryId, updatedData);
         invalidate('categories');
         results.tests.push({
-          name: 'UPDATE Category',
+          name: 'PUT Category',
           status: '✅ SUCCESS',
           detail: `Updated to: ${updated.name}`,
           success: true
         });
       } catch (error) {
         const s = error.response?.status || 'Unknown';
-        const r = statusForError(s, error.message);
-        results.tests.push({ name: 'UPDATE Category', status: r.label, detail: r.detail, success: r.success });
+        const r = statusForError(s, backendMessage(error));
+        results.tests.push({ name: 'PUT Category', status: r.label, detail: r.detail, success: r.success });
       }
+    } else {
+      results.tests.push(skippedResult('PUT Category', 'Skipped because POST Category did not succeed in this run.'));
     }
 
-    // Test 8: CREATE Resource
-    try {
-      const categories = await fetchCategories();
-      const categoryForResource = testCategoryId ? { id: testCategoryId } : categories[0];
-      const newResource = {
-        name: 'Test Resource ' + Date.now(),
-        model: 'Test Model',
-        serialNumber: 'SN-TEST-' + Date.now(),
-        status: 'AVAILABLE',
-        location: 'Test Location',
-        purchaseDate: new Date().toISOString().split('T')[0],
-        category: categoryForResource
-      };
-      const created = await resourceService.createResource(newResource);
-      testResourceId = created.id;
-      invalidate('resources');
-      results.tests.push({
-        name: 'CREATE Resource',
-        status: '✅ SUCCESS',
-        detail: `Created resource with ID: ${created.id}`,
-        success: true
-      });
-    } catch (error) {
-      const s = error.response?.status || 'Unknown';
-      const r = statusForError(s, error.message);
-      results.tests.push({ name: 'CREATE Resource', status: r.label, detail: r.detail, success: r.success });
+    // Test 6: POST Resource (strict dependency: only use category created in this run)
+    if (testCategoryId) {
+      try {
+        const newResource = {
+          name: 'Test Resource ' + Date.now(),
+          model: 'Test Model',
+          serialNumber: 'SN-TEST-' + Date.now(),
+          status: 'AVAILABLE',
+          location: 'Test Location',
+          purchaseDate: new Date().toISOString().split('T')[0],
+          category: { id: testCategoryId }
+        };
+        const created = await resourceService.createResource(newResource);
+        testResourceId = created.id;
+        invalidate('resources');
+        results.tests.push({
+          name: 'POST Resource',
+          status: '✅ SUCCESS',
+          detail: `Created resource with ID: ${created.id}`,
+          success: true
+        });
+      } catch (error) {
+        const s = error.response?.status || 'Unknown';
+        const detail = s === 403
+          ? `${backendMessage(error)} | Roles(token): ${tokenRolesText}`
+          : backendMessage(error);
+        const r = statusForError(s, detail);
+        results.tests.push({ name: 'POST Resource', status: r.label, detail: r.detail, success: r.success });
+      }
+    } else {
+      results.tests.push(skippedResult('POST Resource', 'Skipped because POST Category did not succeed in this run.'));
     }
 
-    // Test 9: UPDATE Resource (if created)
+    // Test 7: GET Resource by ID
+    // If POST failed, fallback to an existing resource so GET can still be validated.
+    const resourceIdForRead = testResourceId || resourcesForFallbackRead?.[0]?.id;
+    if (resourceIdForRead) {
+      try {
+        const resource = await resourceService.getResourceById(resourceIdForRead);
+        const readSource = testResourceId ? 'created in this run' : 'existing resource';
+        results.tests.push({
+          name: 'GET Resource by ID',
+          status: '✅ SUCCESS',
+          detail: `Retrieved: ${resource.name} (${readSource})`,
+          success: true
+        });
+      } catch (error) {
+        const s = error.response?.status || 'Unknown';
+        const r = statusForError(s, backendMessage(error));
+        results.tests.push({ name: 'GET Resource by ID', status: r.label, detail: r.detail, success: r.success });
+      }
+    } else {
+      results.tests.push(skippedResult('GET Resource by ID', 'Skipped because no resource is available to read (POST failed and list is empty).'));
+    }
+
+    // Test 8: PUT Resource (if created)
     if (testResourceId) {
       try {
-        const categories = await fetchCategories();
         const updatedData = {
           name: 'Updated Test Resource',
           model: 'Updated Model',
@@ -206,24 +242,26 @@ const ConnectionTest = ({ isAuthenticated }) => {
           status: 'IN_USE',
           location: 'Updated Location',
           purchaseDate: new Date().toISOString().split('T')[0],
-          category: categories[0]
+          category: { id: testCategoryId }
         };
         const updated = await resourceService.updateResource(testResourceId, updatedData);
         invalidate('resources');
         results.tests.push({
-          name: 'UPDATE Resource',
+          name: 'PUT Resource',
           status: '✅ SUCCESS',
           detail: `Updated to: ${updated.name}`,
           success: true
         });
       } catch (error) {
         const s = error.response?.status || 'Unknown';
-        const r = statusForError(s, error.message);
-        results.tests.push({ name: 'UPDATE Resource', status: r.label, detail: r.detail, success: r.success });
+        const r = statusForError(s, backendMessage(error));
+        results.tests.push({ name: 'PUT Resource', status: r.label, detail: r.detail, success: r.success });
       }
+    } else {
+      results.tests.push(skippedResult('PUT Resource', 'Skipped because POST Resource did not succeed in this run.'));
     }
 
-    // Test 10: DELETE Resource (if created)
+    // Test 11: DELETE Resource (if created)
     if (testResourceId) {
       try {
         await resourceService.deleteResource(testResourceId);
@@ -236,22 +274,14 @@ const ConnectionTest = ({ isAuthenticated }) => {
         });
       } catch (error) {
         const s = error.response?.status || 'Unknown';
-        if (s === 500) {
-          invalidate('resources');
-          results.tests.push({
-            name: 'DELETE Resource',
-            status: '⚠️ WARNING',
-            detail: 'Cannot delete – resource has associated logs (expected behavior)',
-            success: true
-          });
-        } else {
-          const r = statusForError(s, error.message);
-          results.tests.push({ name: 'DELETE Resource', status: r.label, detail: r.detail, success: r.success });
-        }
+        const r = statusForError(s, backendMessage(error));
+        results.tests.push({ name: 'DELETE Resource', status: r.label, detail: r.detail, success: r.success });
       }
+    } else {
+      results.tests.push(skippedResult('DELETE Resource', 'Skipped because POST Resource did not succeed in this run.'));
     }
 
-    // Test 11: DELETE Category (if created)
+    // Test 12: DELETE Category (if created)
     if (testCategoryId) {
       try {
         await categoryService.deleteCategory(testCategoryId);
@@ -264,12 +294,14 @@ const ConnectionTest = ({ isAuthenticated }) => {
         });
       } catch (error) {
         const s = error.response?.status || 'Unknown';
-        const r = statusForError(s, error.message);
+        const r = statusForError(s, backendMessage(error));
         results.tests.push({ name: 'DELETE Category', status: r.label, detail: r.detail, success: r.success });
       }
+    } else {
+      results.tests.push(skippedResult('DELETE Category', 'Skipped because POST Category did not succeed in this run.'));
     }
 
-    // Test 12: GET Available Roles
+    // Test 13: GET Available Roles
     try {
       const roles = await userService.getAvailableRoles();
       results.tests.push({
@@ -280,13 +312,14 @@ const ConnectionTest = ({ isAuthenticated }) => {
       });
     } catch (error) {
       const s = error.response?.status || 'Unknown';
-      const r = statusForError(s, error.message);
+      const r = statusForError(s, backendMessage(error));
       results.tests.push({ name: 'GET Available Roles', status: r.label, detail: r.detail, success: r.success });
     }
 
-    // Test 13: GET All Users
+    // Test 14: GET All Users
     try {
       const users = await userService.getAllUsers();
+      usersForFallbackRead = Array.isArray(users) ? users : [];
       results.tests.push({
         name: 'GET All Users',
         status: '✅ SUCCESS',
@@ -295,11 +328,11 @@ const ConnectionTest = ({ isAuthenticated }) => {
       });
     } catch (error) {
       const s = error.response?.status || 'Unknown';
-      const r = statusForError(s, error.message);
+      const r = statusForError(s, backendMessage(error));
       results.tests.push({ name: 'GET All Users', status: r.label, detail: r.detail, success: r.success });
     }
 
-    // Test 14: CREATE User
+    // Test 12: POST User
     try {
       const timestamp = Date.now();
       const newUser = {
@@ -313,35 +346,43 @@ const ConnectionTest = ({ isAuthenticated }) => {
       const created = await userService.createUser(newUser);
       testUserId = created.id;
       results.tests.push({
-        name: 'CREATE User',
+        name: 'POST User',
         status: '✅ SUCCESS',
         detail: `Created user: ${created.username || created.email} (ID: ${created.id})`,
         success: true
       });
     } catch (error) {
       const s = error.response?.status || 'Unknown';
-      const r = statusForError(s, error.message);
-      results.tests.push({ name: 'CREATE User', status: r.label, detail: r.detail, success: r.success });
+      const detail = s === 403
+        ? `${backendMessage(error)} | Roles(token): ${tokenRolesText}`
+        : backendMessage(error);
+      const r = statusForError(s, detail);
+      results.tests.push({ name: 'POST User', status: r.label, detail: r.detail, success: r.success });
     }
 
-    // Test 15: GET User by ID (if created)
-    if (testUserId) {
+    // Test 13: GET User by ID
+    // If POST failed, fallback to an existing user so GET can still be validated.
+    const userIdForRead = testUserId || usersForFallbackRead?.[0]?.id;
+    if (userIdForRead) {
       try {
-        const user = await userService.getUserById(testUserId);
+        const user = await userService.getUserById(userIdForRead);
+        const readSource = testUserId ? 'created in this run' : 'existing user';
         results.tests.push({
           name: 'GET User by ID',
           status: '✅ SUCCESS',
-          detail: `Retrieved: ${user.username || user.email}`,
+          detail: `Retrieved: ${user.username || user.email} (${readSource})`,
           success: true
         });
       } catch (error) {
         const s = error.response?.status || 'Unknown';
-        const r = statusForError(s, error.message);
+        const r = statusForError(s, backendMessage(error));
         results.tests.push({ name: 'GET User by ID', status: r.label, detail: r.detail, success: r.success });
       }
+    } else {
+      results.tests.push(skippedResult('GET User by ID', 'Skipped because no user is available to read (POST failed and list is empty).'));
     }
 
-    // Test 16: UPDATE User (if created)
+    // Test 14: PUT User (if created)
     if (testUserId) {
       try {
         const updatedData = {
@@ -351,19 +392,21 @@ const ConnectionTest = ({ isAuthenticated }) => {
         };
         const updated = await userService.updateUser(testUserId, updatedData);
         results.tests.push({
-          name: 'UPDATE User',
+          name: 'PUT User',
           status: '✅ SUCCESS',
           detail: `Updated user: ${updated.firstName} ${updated.lastName}`,
           success: true
         });
       } catch (error) {
         const s = error.response?.status || 'Unknown';
-        const r = statusForError(s, error.message);
-        results.tests.push({ name: 'UPDATE User', status: r.label, detail: r.detail, success: r.success });
+        const r = statusForError(s, backendMessage(error));
+        results.tests.push({ name: 'PUT User', status: r.label, detail: r.detail, success: r.success });
       }
+    } else {
+      results.tests.push(skippedResult('PUT User', 'Skipped because POST User did not succeed in this run.'));
     }
 
-    // Test 17: DELETE User (if created)
+    // Test 18: DELETE User (if created)
     if (testUserId) {
       try {
         await userService.deleteUser(testUserId);
@@ -375,12 +418,14 @@ const ConnectionTest = ({ isAuthenticated }) => {
         });
       } catch (error) {
         const s = error.response?.status || 'Unknown';
-        const r = statusForError(s, error.message);
+        const r = statusForError(s, backendMessage(error));
         results.tests.push({ name: 'DELETE User', status: r.label, detail: r.detail, success: r.success });
       }
+    } else {
+      results.tests.push(skippedResult('DELETE User', 'Skipped because POST User did not succeed in this run.'));
     }
 
-    // Test 18: GET Logs
+    // Test 19: GET Logs
     try {
       const logs = await logService.getLogs('24h');
       results.tests.push({
@@ -391,7 +436,7 @@ const ConnectionTest = ({ isAuthenticated }) => {
       });
     } catch (error) {
       const s = error.response?.status || 'Unknown';
-      const r = statusForError(s, error.message);
+      const r = statusForError(s, backendMessage(error));
       results.tests.push({ name: 'GET Logs (last 24h)', status: r.label, detail: r.detail, success: r.success });
     }
 
@@ -410,19 +455,17 @@ const ConnectionTest = ({ isAuthenticated }) => {
   };
 
   const groups = [
-    { label: 'Connectivity', keys: ['Backend Health Check', 'API Endpoint Check'] },
-    { label: 'Read Access', keys: ['Categories API (GET)', 'Resources API (GET)'] },
-    { label: 'Category', keys: ['CREATE Category', 'READ Category by ID', 'UPDATE Category', 'DELETE Category'] },
-    { label: 'Resource', keys: ['CREATE Resource', 'UPDATE Resource', 'DELETE Resource'] },
-    { label: 'User', keys: ['GET Available Roles', 'GET All Users', 'CREATE User', 'GET User by ID', 'UPDATE User', 'DELETE User'] },
-    { label: 'Log', keys: ['GET Logs (last 24h)'] },
+    { label: 'GET', keys: ['GET Categories', 'GET Resources', 'GET Category by ID', 'GET Resource by ID', 'GET All Users', 'GET User by ID', 'GET Available Roles', 'GET Logs (last 24h)'] },
+    { label: 'POST', keys: ['POST Category', 'POST Resource', 'POST User'] },
+    { label: 'PUT', keys: ['PUT Category', 'PUT Resource', 'PUT User'] },
+    { label: 'DELETE', keys: ['DELETE Resource', 'DELETE Category', 'DELETE User'] },
   ];
 
   return (
     <div style={{ padding: '16px 20px', fontFamily: 'system-ui, -apple-system, sans-serif', color: '#f1f5f9' }}>
       <h2 style={{ marginBottom: '6px', color: '#f1f5f9' }}>API Test Suite</h2>
       <p style={{ color: '#64748b', fontSize: '14px', marginBottom: '20px' }}>
-        Covers connectivity and read endpoints for all users, plus CRUD admin flows.
+        Verifies permissions by HTTP method: GET, POST, PUT and DELETE.
       </p>
 
       {!isAuthenticated ? (
@@ -455,7 +498,7 @@ const ConnectionTest = ({ isAuthenticated }) => {
               fontWeight: '600'
             }}
           >
-            {loading ? '⏳ Running...' : '▶ Run All CRUD Tests'}
+            {loading ? '⏳ Running...' : '▶ Run Permission Matrix Tests'}
           </button>
         </div>
       )}
@@ -481,7 +524,9 @@ const ConnectionTest = ({ isAuthenticated }) => {
           </div>
 
           {groups.map(group => {
-            const groupTests = testResult.tests.filter(t => group.keys.includes(t.name));
+            const groupTests = group.keys
+              .map((key) => testResult.tests.find((t) => t.name === key))
+              .filter(Boolean);
             if (groupTests.length === 0) return null;
             return (
               <div key={group.label} style={{ marginBottom: '20px' }}>

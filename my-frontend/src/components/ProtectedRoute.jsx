@@ -4,8 +4,7 @@ import { useAuth } from '../context/AuthContext';
 /**
  * Wraps a route element with role-based access control.
  *
- * - Unauthenticated users  → redirect to /  (with `state.from` so a future
- *   login flow could send them back to the page they requested)
+ * - Unauthenticated users  → redirect to /
  * - Authenticated non-admins trying to reach an adminOnly route
  *                          → redirect to /resources
  * - Authorized users       → render children as-is

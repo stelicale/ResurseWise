@@ -2,34 +2,44 @@ import React, { useEffect, useState, useCallback } from 'react';
 import DataTable from './DataTable';
 import Modal, { FormField, FormActions, inputStyle } from './Modal';
 import { categoryService } from '../services/categoryService';
-import { useData } from '../context/DataContext';
 import { toast } from 'react-toastify';
 
 const EMPTY_FORM = { name: '', description: '' };
 
 const CategoriesPage = ({ isAdmin }) => {
-  const { fetchCategories, invalidate } = useData();
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [totalItems, setTotalItems] = useState(0);
+  const [query, setQuery] = useState({ page: 0, size: 10, sortBy: null, sortDir: 'asc', filters: {} });
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(null); // null = create mode
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
 
-  const load = useCallback(async (force = false) => {
+  const load = useCallback(async (q = query) => {
     setLoading(true);
     try {
-      const data = await fetchCategories(force);
-      setCategories(data || []);
+      const params = {
+        page: q.page,
+        size: q.size,
+        sortBy: q.sortBy,
+        sortDir: q.sortDir,
+        id: q.filters?.id,
+        name: q.filters?.name,
+        description: q.filters?.description,
+      };
+      const pageData = await categoryService.getCategoriesPage(params);
+      setCategories(pageData?.content || []);
+      setTotalItems(pageData?.totalElements || 0);
     } catch {
       toast.error('Failed to load categories');
     } finally {
       setLoading(false);
     }
-  }, [fetchCategories]);
+  }, [query]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { load(query); }, [query, load]);
 
   const openAdd = () => { setEditing(null); setForm(EMPTY_FORM); setModalOpen(true); };
   const openEdit = (row) => { setEditing(row); setForm({ name: row.name || '', description: row.description || '' }); setModalOpen(true); };
@@ -45,8 +55,7 @@ const CategoriesPage = ({ isAdmin }) => {
       } else {
         await categoryService.createCategory(form);
       }
-      invalidate('categories');
-      await load(true);
+      await load(query);
       closeModal();
     } catch {
       // toast shown by service
@@ -60,8 +69,7 @@ const CategoriesPage = ({ isAdmin }) => {
     try {
       await categoryService.deleteCategory(deleteTarget.id);
       toast.success('Category deleted');
-      invalidate('categories');
-      await load(true);
+      await load(query);
     } catch (err) {
       toast.error(err?.response?.data?.message || 'Failed to delete category');
     } finally {
@@ -83,9 +91,17 @@ const CategoriesPage = ({ isAdmin }) => {
   ];
 
   const filters = [
+    { key: 'id', label: 'ID', type: 'text' },
     { key: 'name', label: 'Name', type: 'text' },
     { key: 'description', label: 'Description', type: 'text' },
   ];
+
+  const handleServerQueryChange = useCallback((next) => {
+    setQuery((prev) => {
+      const same = JSON.stringify(prev) === JSON.stringify(next);
+      return same ? prev : next;
+    });
+  }, []);
 
   return (
     <div>
@@ -95,6 +111,9 @@ const CategoriesPage = ({ isAdmin }) => {
         data={categories}
         filters={filters}
         loading={loading}
+        serverMode
+        totalItems={totalItems}
+        onQueryChange={handleServerQueryChange}
         isAdmin={isAdmin}
         actions={{
           onAdd: openAdd,

@@ -33,7 +33,7 @@ const FEATURES = [
   },
 ];
 
-const LandingPage = ({ isAuthenticated, onGetStarted }) => {
+const LandingPage = ({ isAuthenticated }) => {
   return (
     <div style={{ color: '#f1f5f9', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
 
@@ -76,28 +76,10 @@ const LandingPage = ({ isAuthenticated, onGetStarted }) => {
           A centralised platform for tracking company assets, managing users and reviewing audit activity — all in one place.
         </p>
 
-        {!isAuthenticated ? (
+        {!isAuthenticated && (
           <p style={{ margin: 0, fontSize: '14px', color: '#475569' }}>
-            Sign in with your credentials using the fields in the top-right corner.
+            Authentication is managed by Keycloak.
           </p>
-        ) : (
-          <button
-            onClick={onGetStarted}
-            style={{
-              padding: '12px 28px',
-              borderRadius: '8px',
-              border: 'none',
-              backgroundColor: '#3b82f6',
-              color: '#fff',
-              fontSize: '15px',
-              fontWeight: '700',
-              cursor: 'pointer',
-              boxShadow: '0 0 24px #3b82f640',
-              letterSpacing: '-0.01em',
-            }}
-          >
-            Go to Resources →
-          </button>
         )}
       </section>
 
@@ -184,7 +166,7 @@ const LandingPage = ({ isAuthenticated, onGetStarted }) => {
         color: '#334155',
         backgroundColor: '#0f172a',
       }}>
-        ResurseWise · dvloper.io · {new Date().getFullYear()}
+        ResurseWise · {new Date().getFullYear()}
       </div>
     </div>
   );

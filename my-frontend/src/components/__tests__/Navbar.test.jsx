@@ -2,7 +2,7 @@
  * Navbar – role-based UI visibility & collapsible mobile menu
  *
  * Tests verify:
- *   - Unauthenticated state: login form visible, nav tabs hidden
+ *   - Unauthenticated state: Sign in button visible, nav tabs hidden
  *   - Employee role: only non-admin tabs (Resources, Categories) visible
  *   - Admin role: all four tabs (+ Users, Logs) visible
  *   - Hamburger: toggles the mobile dropdown open / closed
@@ -29,13 +29,13 @@ function renderNavbar(overrides = {}) {
 describe('Navbar – unauthenticated state', () => {
   beforeEach(() => renderNavbar({ isAuthenticated: false, isAdmin: false, username: '' }));
 
-  test('shows Username and Password inputs', () => {
-    expect(screen.getByPlaceholderText('Username')).toBeInTheDocument();
-    expect(screen.getByPlaceholderText('Password')).toBeInTheDocument();
+  test('does not show inline username/password inputs', () => {
+    expect(screen.queryByPlaceholderText('Username')).not.toBeInTheDocument();
+    expect(screen.queryByPlaceholderText('Password')).not.toBeInTheDocument();
   });
 
-  test('shows Login button', () => {
-    expect(screen.getByRole('button', { name: /^login$/i })).toBeInTheDocument();
+  test('shows Sign in button', () => {
+    expect(screen.getByRole('button', { name: /sign in/i })).toBeInTheDocument();
   });
 
   test('hides navigation tabs when not logged in', () => {
