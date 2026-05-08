@@ -8,7 +8,7 @@ build_backend:
   tags: [full-runner]
   script:
     - docker login $HARBOR_REGISTRY -u "$HARBOR_USERNAME" -p "$HARBOR_PASSWORD"
-    - docker build -t "$IMAGE_BACKEND" .
+    - docker build -t "$IMAGE_BACKEND" -f "$CI_PROJECT_DIR"/Dockerfile "$CI_PROJECT_DIR"
     - docker push "$IMAGE_BACKEND"
   only:
     - branches
@@ -17,6 +17,7 @@ deploy_backend:
   stage: deploy
   tags: [full-runner]
   script:
+    - export KUBECONFIG=/home/gitlab-runner/.kube/config
     - kubectl set image deployment/backend backend="$IMAGE_BACKEND" -n dvloper
     - kubectl rollout status deployment/backend -n dvloper
   only:
