@@ -53,6 +53,17 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
+    void testHandleDuplicateEntry() {
+        DuplicateEntryException ex = new DuplicateEntryException("Category already exists");
+
+        ResponseEntity<Map<String, String>> response = handler.handleDuplicateEntry(ex, null);
+
+        assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertEquals("Category already exists", response.getBody().get("message"));
+    }
+
+    @Test
     void testHandleValidationErrorsSingleField() {
         MethodArgumentNotValidException ex = mock(MethodArgumentNotValidException.class);
         BindingResult bindingResult = mock(BindingResult.class);

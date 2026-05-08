@@ -22,6 +22,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -47,13 +48,14 @@ class CategoryControllerTest {
         Category cat1 = createCategory("Laptops", "High performance");
         Category cat2 = createCategory("Monitors", "Display devices");
 
-        when(repository.findAll(any(Specification.class), any(Pageable.class))).thenReturn(new PageImpl<>(Arrays.asList(cat1, cat2)));
+        when(repository.findAll(any(Specification.class), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(Arrays.asList(cat1, cat2)));
 
         mockMvc.perform(get("/api/categories"))
                 .andExpect(status().isOk())
-            .andExpect(jsonPath("$.content", hasSize(2)))
-            .andExpect(jsonPath("$.content[0].name", is("Laptops")))
-            .andExpect(jsonPath("$.content[1].name", is("Monitors")));
+                .andExpect(jsonPath("$.content", hasSize(2)))
+                .andExpect(jsonPath("$.content[0].name", is("Laptops")))
+                .andExpect(jsonPath("$.content[1].name", is("Monitors")));
     }
 
     @Test
@@ -165,12 +167,26 @@ class CategoryControllerTest {
     }
 
     @Test
+    void testCreateCategoryDuplicateReturnsConflict() throws Exception {
+        Category category = createCategory("Laptops", "High performance computers");
+
+        when(repository.existsByNameIgnoreCaseAndDescriptionIgnoreCase(anyString(), anyString())).thenReturn(true);
+
+        mockMvc.perform(post("/api/categories")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(category)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message", containsString("already exists")));
+    }
+
+    @Test
     void testGetAllCategoriesEmpty() throws Exception {
-        when(repository.findAll(any(Specification.class), any(Pageable.class))).thenReturn(new PageImpl<>(Arrays.asList()));
+        when(repository.findAll(any(Specification.class), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(Arrays.asList()));
 
         mockMvc.perform(get("/api/categories"))
                 .andExpect(status().isOk())
-            .andExpect(jsonPath("$.content", hasSize(0)));
+                .andExpect(jsonPath("$.content", hasSize(0)));
     }
 
     @Test

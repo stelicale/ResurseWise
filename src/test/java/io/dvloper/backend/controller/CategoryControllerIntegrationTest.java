@@ -51,9 +51,9 @@ class CategoryControllerIntegrationTest {
 
         mockMvc.perform(get("/api/categories"))
                 .andExpect(status().isOk())
-            .andExpect(jsonPath("$.content", hasSize(2)))
-            .andExpect(jsonPath("$.content[0].name", is("Category 1")))
-            .andExpect(jsonPath("$.content[1].name", is("Category 2")));
+                .andExpect(jsonPath("$.content", hasSize(2)))
+                .andExpect(jsonPath("$.content[0].name", is("Category 1")))
+                .andExpect(jsonPath("$.content[1].name", is("Category 2")));
     }
 
     @Test

@@ -53,13 +53,14 @@ class ResourceControllerTest {
         Resource res1 = createValidResource("MacBook Pro", "SN-001");
         Resource res2 = createValidResource("Dell XPS", "SN-002");
 
-        when(repository.findAll(any(Specification.class), any(Pageable.class))).thenReturn(new PageImpl<>(Arrays.asList(res1, res2)));
+        when(repository.findAll(any(Specification.class), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(Arrays.asList(res1, res2)));
 
         mockMvc.perform(get("/api/resources"))
                 .andExpect(status().isOk())
-            .andExpect(jsonPath("$.content", hasSize(2)))
-            .andExpect(jsonPath("$.content[0].name", is("MacBook Pro")))
-            .andExpect(jsonPath("$.content[1].name", is("Dell XPS")));
+                .andExpect(jsonPath("$.content", hasSize(2)))
+                .andExpect(jsonPath("$.content[0].name", is("MacBook Pro")))
+                .andExpect(jsonPath("$.content[1].name", is("Dell XPS")));
     }
 
     @Test
@@ -163,11 +164,12 @@ class ResourceControllerTest {
 
     @Test
     void testGetAllResourcesEmpty() throws Exception {
-        when(repository.findAll(any(Specification.class), any(Pageable.class))).thenReturn(new PageImpl<>(Arrays.asList()));
+        when(repository.findAll(any(Specification.class), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(Arrays.asList()));
 
         mockMvc.perform(get("/api/resources"))
                 .andExpect(status().isOk())
-            .andExpect(jsonPath("$.content", hasSize(0)));
+                .andExpect(jsonPath("$.content", hasSize(0)));
     }
 
     @Test

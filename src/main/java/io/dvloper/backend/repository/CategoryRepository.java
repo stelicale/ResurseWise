@@ -7,4 +7,7 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import java.util.UUID;
 
 public interface CategoryRepository extends JpaRepository<Category, UUID>, JpaSpecificationExecutor<Category> {
+    boolean existsByNameIgnoreCaseAndDescriptionIgnoreCase(String name, String description);
+
+    boolean existsByNameIgnoreCaseAndDescriptionIgnoreCaseAndIdNot(String name, String description, UUID id);
 }

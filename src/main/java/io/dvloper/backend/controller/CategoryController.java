@@ -2,6 +2,7 @@ package io.dvloper.backend.controller;
 
 import io.dvloper.backend.dto.PagedResponse;
 import io.dvloper.backend.entities.Category;
+import io.dvloper.backend.exception.DuplicateEntryException;
 import io.dvloper.backend.repository.CategoryRepository;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -70,6 +71,15 @@ public class CategoryController {
     public ResponseEntity<Category> createCategory(@Valid @RequestBody Category category) {
         // @Valid checks if the incoming Category object meets validation constraints
         // (e.g., @NotBlank)
+        String normalizedName = normalize(category.getName());
+        String normalizedDescription = normalize(category.getDescription());
+
+        if (repository.existsByNameIgnoreCaseAndDescriptionIgnoreCase(normalizedName, normalizedDescription)) {
+            throw new DuplicateEntryException("Category already exists with the same name and description");
+        }
+
+        category.setName(normalizedName);
+        category.setDescription(normalizedDescription);
         Category savedCategory = repository.save(category);
         // Return 201 Created
         return ResponseEntity.status(HttpStatus.CREATED).body(savedCategory);
@@ -79,12 +89,24 @@ public class CategoryController {
     public ResponseEntity<Category> updateCategory(@PathVariable UUID id, @RequestBody Category categoryDetails) {
         return repository.findById(id)
                 .map(category -> {
+                    String nextName = categoryDetails.getName() != null ? normalize(categoryDetails.getName())
+                            : category.getName();
+                    String nextDescription = categoryDetails.getDescription() != null
+                            ? normalize(categoryDetails.getDescription())
+                            : category.getDescription();
+
+                    if (repository.existsByNameIgnoreCaseAndDescriptionIgnoreCaseAndIdNot(nextName, nextDescription,
+                            id)) {
+                        throw new DuplicateEntryException(
+                                "Category already exists with the same name and description");
+                    }
+
                     // Update only non-null fields from request
                     if (categoryDetails.getName() != null) {
-                        category.setName(categoryDetails.getName());
+                        category.setName(nextName);
                     }
                     if (categoryDetails.getDescription() != null) {
-                        category.setDescription(categoryDetails.getDescription());
+                        category.setDescription(nextDescription);
                     }
                     Category updatedCategory = repository.save(category);
                     return ResponseEntity.ok(updatedCategory);
@@ -124,5 +146,9 @@ public class CategoryController {
             case "id", "name", "description" -> sortBy;
             default -> "name";
         };
+    }
+
+    private String normalize(String value) {
+        return value == null ? null : value.trim();
     }
 }

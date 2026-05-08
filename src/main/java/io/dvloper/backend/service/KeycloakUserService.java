@@ -2,7 +2,9 @@ package io.dvloper.backend.service;
 
 import io.dvloper.backend.dto.CreateKeycloakUserDTO;
 import io.dvloper.backend.dto.KeycloakUserDTO;
+import io.dvloper.backend.exception.DuplicateEntryException;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -131,6 +133,9 @@ public class KeycloakUserService {
 
             return null;
         } catch (org.springframework.web.client.HttpClientErrorException e) {
+            if (isDuplicateUserError(e)) {
+                throw new DuplicateEntryException("User already exists with the same username or email");
+            }
             System.err.println("Keycloak error response: " + e.getResponseBodyAsString());
             throw new RuntimeException(
                     "Failed to create user: " + e.getStatusCode() + " - " + e.getResponseBodyAsString(), e);
@@ -178,6 +183,12 @@ public class KeycloakUserService {
             }
 
             return getUserById(bearerToken, id).orElse(null);
+        } catch (org.springframework.web.client.HttpClientErrorException e) {
+            if (isDuplicateUserError(e)) {
+                throw new DuplicateEntryException("User already exists with the same username or email");
+            }
+            throw new RuntimeException(
+                    "Failed to update user: " + e.getStatusCode() + " - " + e.getResponseBodyAsString(), e);
         } catch (Exception e) {
             throw new RuntimeException("Failed to update user: " + e.getMessage(), e);
         }
@@ -407,5 +418,22 @@ public class KeycloakUserService {
         }
 
         throw new RuntimeException("Failed to obtain Keycloak admin token");
+    }
+
+    private boolean isDuplicateUserError(org.springframework.web.client.HttpClientErrorException e) {
+        if (e.getStatusCode() == HttpStatus.CONFLICT) {
+            return true;
+        }
+
+        if (e.getStatusCode() == HttpStatus.BAD_REQUEST) {
+            String body = Optional.ofNullable(e.getResponseBodyAsString()).orElse("").toLowerCase();
+            return body.contains("already exists")
+                    || body.contains("exists with same")
+                    || body.contains("duplicate")
+                    || body.contains("username")
+                    || body.contains("email");
+        }
+
+        return false;
     }
 }
