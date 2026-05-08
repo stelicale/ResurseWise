@@ -8,7 +8,7 @@ build_frontend:
   tags: [full-runner]
   script:
     - docker login $HARBOR_REGISTRY -u "$HARBOR_USERNAME" -p "$HARBOR_PASSWORD"
-    - docker build -t "$IMAGE_FRONTEND" -f my-frontend/Dockerfile my-frontend
+    - docker build -t "$IMAGE_FRONTEND" -f "$CI_PROJECT_DIR"/my-frontend/Dockerfile "$CI_PROJECT_DIR"/my-frontend
     - docker push "$IMAGE_FRONTEND"
   only:
     - branches
