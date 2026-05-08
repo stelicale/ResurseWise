@@ -11,7 +11,7 @@ const TIME_OPTIONS = [
   { value: '30d', label: 'Last 30 days' },
 ];
 
-const formatUtcPlus2 = (rawValue) => {
+const formatBucharestTime = (rawValue) => {
   if (!rawValue) return '—';
 
   const normalized = String(rawValue).replace(' ', 'T');
@@ -22,24 +22,18 @@ const formatUtcPlus2 = (rawValue) => {
     return rawValue;
   }
 
-  const shifted = new Date(utcDate.getTime() + (2 * 60 * 60 * 1000));
-
-  const time = shifted.toLocaleTimeString('en-US', {
-    timeZone: 'UTC',
-    hour: 'numeric',
+  const display = utcDate.toLocaleString('ro-RO', {
+    timeZone: 'Europe/Bucharest',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
     minute: '2-digit',
     second: '2-digit',
-    hour12: true,
+    hour12: false,
   });
 
-  const date = shifted.toLocaleDateString('en-US', {
-    timeZone: 'UTC',
-    month: 'numeric',
-    day: 'numeric',
-    year: 'numeric',
-  });
-
-  return `${time} (UTC+2) ${date}.`;
+  return `${display} (Bucharest)`;
 };
 
 const actionBadge = (action) => {
@@ -145,7 +139,7 @@ const LogsPage = () => {
       label: 'Timestamp',
       sortable: true,
       render: (val) => {
-        return formatUtcPlus2(val);
+        return formatBucharestTime(val);
       },
     },
     {

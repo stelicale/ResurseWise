@@ -68,10 +68,9 @@ const CategoriesPage = ({ isAdmin }) => {
     if (!deleteTarget) return;
     try {
       await categoryService.deleteCategory(deleteTarget.id);
-      toast.success('Category deleted');
       await load(query);
-    } catch (err) {
-      toast.error(err?.response?.data?.message || 'Failed to delete category');
+    } catch {
+      // Toast is handled centrally in service/interceptor.
     } finally {
       setDeleteTarget(null);
     }

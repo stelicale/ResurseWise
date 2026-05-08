@@ -1,0 +1,23 @@
+stages: [build, deploy]
+
+variables:
+  IMAGE_FRONTEND: "$HARBOR_REGISTRY/$HARBOR_PROJECT/$IMAGE_PREFIX/frontend:$CI_COMMIT_SHORT_SHA"
+
+build_frontend:
+  stage: build
+  tags: [full-runner]
+  script:
+    - docker login $HARBOR_REGISTRY -u "$HARBOR_USERNAME" -p "$HARBOR_PASSWORD"
+    - docker build -t "$IMAGE_FRONTEND" .
+    - docker push "$IMAGE_FRONTEND"
+  only:
+    - branches
+
+deploy_frontend:
+  stage: deploy
+  tags: [full-runner]
+  script:
+    - kubectl set image deployment/frontend frontend="$IMAGE_FRONTEND" -n dvloper
+    - kubectl rollout status deployment/frontend -n dvloper
+  only:
+    - branches

@@ -1,14 +1,19 @@
+const runtimeEnv = window.__env || {};
 const keycloakConfig = {
-  realm: process.env.REACT_APP_KEYCLOAK_REALM || 'ITResurceManager',
-  clientId: process.env.REACT_APP_KEYCLOAK_CLIENT_ID || 'spring-backend',
-  clientSecret: process.env.REACT_APP_KEYCLOAK_CLIENT_SECRET || '',
+  realm: runtimeEnv.KEYCLOAK_REALM || process.env.REACT_APP_KEYCLOAK_REALM || 'ITResurceManager',
+  clientId: runtimeEnv.KEYCLOAK_CLIENT_ID || process.env.REACT_APP_KEYCLOAK_CLIENT_ID || 'spring-backend',
+  clientSecret:
+    runtimeEnv.KEYCLOAK_CLIENT_SECRET || process.env.REACT_APP_KEYCLOAK_CLIENT_SECRET || '',
 };
 
-const proxyPrefix = process.env.REACT_APP_KEYCLOAK_PROXY_PREFIX || '/keycloak';
+const proxyPrefix =
+  runtimeEnv.KEYCLOAK_PROXY_PREFIX || process.env.REACT_APP_KEYCLOAK_PROXY_PREFIX || '/keycloak';
 const keycloakPublicBaseUrl = (
-  process.env.REACT_APP_KEYCLOAK_URL || `${window.location.origin}${proxyPrefix}`
+  runtimeEnv.KEYCLOAK_URL ||
+  process.env.REACT_APP_KEYCLOAK_URL ||
+  `${window.location.origin}${proxyPrefix}`
 ).replace(/\/$/, '');
-const tokenEndpoint = `${proxyPrefix}/realms/${keycloakConfig.realm}/protocol/openid-connect/token`;
+const tokenEndpoint = `${keycloakPublicBaseUrl}/realms/${keycloakConfig.realm}/protocol/openid-connect/token`;
 const authorizationEndpoint = `${keycloakPublicBaseUrl}/realms/${keycloakConfig.realm}/protocol/openid-connect/auth`;
 const logoutEndpoint = `${keycloakPublicBaseUrl}/realms/${keycloakConfig.realm}/protocol/openid-connect/logout`;
 const redirectUri = `${window.location.origin}/auth-callback`;
@@ -20,6 +25,8 @@ const toBase64Url = (bytes) =>
     .replace(/\//g, '_')
     .replace(/=/g, '');
 
+const canUsePkce = Boolean(window.crypto && window.crypto.subtle);
+
 const generateCodeVerifier = () => {
   const bytes = new Uint8Array(32);
   crypto.getRandomValues(bytes);
@@ -27,6 +34,10 @@ const generateCodeVerifier = () => {
 };
 
 const generateCodeChallenge = async (verifier) => {
+  if (!canUsePkce) {
+    return null;
+  }
+
   const data = new TextEncoder().encode(verifier);
   const digest = await crypto.subtle.digest('SHA-256', data);
   return toBase64Url(new Uint8Array(digest));
@@ -149,10 +160,14 @@ export const initKeycloak = async () => {
 };
 
 export const login = async () => {
-  const codeVerifier = generateCodeVerifier();
-  const codeChallenge = await generateCodeChallenge(codeVerifier);
+  let codeVerifier = null;
+  let codeChallenge = null;
 
-  sessionStorage.setItem('pkce_verifier', codeVerifier);
+  if (canUsePkce) {
+    codeVerifier = generateCodeVerifier();
+    codeChallenge = await generateCodeChallenge(codeVerifier);
+    sessionStorage.setItem('pkce_verifier', codeVerifier);
+  }
 
   const params = new URLSearchParams({
     client_id: keycloakConfig.clientId,
@@ -161,9 +176,12 @@ export const login = async () => {
     scope: 'openid profile email',
     prompt: 'login',
     max_age: '0',
-    code_challenge: codeChallenge,
-    code_challenge_method: 'S256',
   });
+
+  if (codeChallenge) {
+    params.set('code_challenge', codeChallenge);
+    params.set('code_challenge_method', 'S256');
+  }
 
   window.location.href = `${authorizationEndpoint}?${params.toString()}`;
 };
@@ -171,19 +189,26 @@ export const login = async () => {
 export const handleAuthCallback = async (code) => {
   const codeVerifier = sessionStorage.getItem('pkce_verifier');
 
-  if (!code || !codeVerifier) {
+  if (!code) {
     throw new Error('Missing authorization code or PKCE verifier');
   }
 
-  const tokenData = await requestToken({
+  const payload = {
     grant_type: 'authorization_code',
     code,
     redirect_uri: redirectUri,
-    code_verifier: codeVerifier,
-  });
+  };
+
+  if (codeVerifier) {
+    payload.code_verifier = codeVerifier;
+  }
+
+  const tokenData = await requestToken(payload);
 
   setStoredTokens(tokenData);
-  sessionStorage.removeItem('pkce_verifier');
+  if (codeVerifier) {
+    sessionStorage.removeItem('pkce_verifier');
+  }
   notifyAuthSubscribers();
   return true;
 };

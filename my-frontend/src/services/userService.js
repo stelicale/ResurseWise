@@ -95,7 +95,6 @@ export const userService = {
       return data;
     } catch (error) {
       console.error('Error creating user:', error);
-      toast.error('Failed to create user');
       throw error;
     }
   },
@@ -113,7 +112,6 @@ export const userService = {
       return data;
     } catch (error) {
       console.error(`Error updating user ${id}:`, error);
-      toast.error('Failed to update user');
       throw error;
     }
   },
@@ -129,7 +127,6 @@ export const userService = {
       toast.success('User deleted successfully!');
     } catch (error) {
       console.error(`Error deleting user ${id}:`, error);
-      toast.error('Failed to delete user');
       throw error;
     }
   },

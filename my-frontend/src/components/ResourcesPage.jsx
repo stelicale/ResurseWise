@@ -160,15 +160,9 @@ const ResourcesPage = ({ isAdmin }) => {
     if (!deleteTarget) return;
     try {
       await resourceService.deleteResource(deleteTarget.id);
-      toast.success('Resource deleted');
       await load(query);
-    } catch (err) {
-      const msg = err?.response?.data?.message || err?.message || 'Failed to delete resource';
-      if (err?.response?.status === 500) {
-        toast.error('Cannot delete: resource has associated logs');
-      } else {
-        toast.error(msg);
-      }
+    } catch {
+      // Toast is handled centrally in service/interceptor.
     } finally {
       setDeleteTarget(null);
     }
@@ -176,16 +170,22 @@ const ResourcesPage = ({ isAdmin }) => {
 
   const columns = [
     { key: 'name', label: 'Name', sortable: true },
-    { key: 'model', label: 'Model', sortable: true },
     { key: 'serialNumber', label: 'Serial #', sortable: true },
+    { key: 'categoryName', label: 'Category', sortable: true },
     {
       key: 'status',
       label: 'Status',
       sortable: true,
       render: (val) => statusBadge(val),
     },
-    { key: 'categoryName', label: 'Category', sortable: true },
-    { key: 'location', label: 'Location', sortable: true },
+    {
+      key: 'id',
+      label: 'ID',
+      sortable: false,
+      render: (val) => (
+        <span style={{ fontFamily: 'monospace', fontSize: '12px', color: '#64748b' }}>{val}</span>
+      ),
+    },
     {
       key: 'purchaseDate',
       label: 'Purchase Date',
@@ -196,7 +196,6 @@ const ResourcesPage = ({ isAdmin }) => {
 
   const filters = [
     { key: 'name', label: 'Name', type: 'text' },
-    { key: 'model', label: 'Model', type: 'text' },
     { key: 'serialNumber', label: 'Serial #', type: 'text' },
     { key: 'status', label: 'Status', type: 'select', options: STATUS_OPTIONS },
     {
@@ -205,7 +204,6 @@ const ResourcesPage = ({ isAdmin }) => {
       type: 'select',
       options: categories.map((c) => ({ value: c.name, label: c.name })),
     },
-    { key: 'location', label: 'Location', type: 'text' },
   ];
 
   const handleServerQueryChange = useCallback((next) => {
