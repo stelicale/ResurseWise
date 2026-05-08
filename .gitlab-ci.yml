@@ -17,6 +17,7 @@ deploy_frontend:
   stage: deploy
   tags: [full-runner]
   script:
+    - export KUBECONFIG=/home/gitlab-runner/.kube/config
     - kubectl set image deployment/frontend frontend="$IMAGE_FRONTEND" -n dvloper
     - kubectl rollout status deployment/frontend -n dvloper
   only:
