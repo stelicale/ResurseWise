@@ -1,0 +1,59 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: postgres-restore-manual
+  namespace: dvloper
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        app: postgres-restore
+        type: manual
+    spec:
+      serviceAccountName: postgres-backup
+      restartPolicy: Never
+      containers:
+        - name: postgres-restore
+          image: postgres:16
+          imagePullPolicy: IfNotPresent
+          # Default: restore from latest backup
+          # To restore specific backup: kubectl set env job/postgres-restore-manual BACKUP_FILE=/backups/postgres_backup_YYYYMMDD_HHMMSS.sql
+          command: ["/bin/bash", "/scripts/restore.sh"]
+          env:
+            - name: PGHOST
+              value: "postgres"
+            - name: PGPORT
+              value: "5432"
+            - name: PGUSER
+              valueFrom:
+                secretKeyRef:
+                  name: dvloper-secrets
+                  key: APP_DB_USER
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: dvloper-secrets
+                  key: APP_DB_PASSWORD
+            - name: PGDATABASE
+              valueFrom:
+                secretKeyRef:
+                  name: dvloper-secrets
+                  key: APP_DB_NAME
+            # Optional: specify which backup file to restore from
+            - name: BACKUP_FILE
+              value: ""
+          volumeMounts:
+            - name: restore-script
+              mountPath: /scripts
+              readOnly: true
+            - name: backup-storage
+              mountPath: /backups
+      volumes:
+        - name: restore-script
+          configMap:
+            name: postgres-restore-script
+            defaultMode: 0755
+        - name: backup-storage
+          persistentVolumeClaim:
+            claimName: postgres-backup-storage

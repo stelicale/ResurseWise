@@ -1,0 +1,54 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: postgres-backup-manual
+  namespace: dvloper
+spec:
+  backoffLimit: 2
+  template:
+    metadata:
+      labels:
+        app: postgres-backup
+        type: manual
+    spec:
+      serviceAccountName: postgres-backup
+      restartPolicy: Never
+      containers:
+        - name: postgres-backup
+          image: postgres:16
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/bash", "/scripts/backup.sh"]
+          env:
+            - name: PGHOST
+              value: "postgres"
+            - name: PGPORT
+              value: "5432"
+            - name: PGUSER
+              valueFrom:
+                secretKeyRef:
+                  name: dvloper-secrets
+                  key: APP_DB_USER
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: dvloper-secrets
+                  key: APP_DB_PASSWORD
+            - name: PGDATABASE
+              valueFrom:
+                secretKeyRef:
+                  name: dvloper-secrets
+                  key: APP_DB_NAME
+          volumeMounts:
+            - name: backup-script
+              mountPath: /scripts
+              readOnly: true
+            - name: backup-storage
+              mountPath: /backups
+      volumes:
+        - name: backup-script
+          configMap:
+            name: postgres-backup-script
+            defaultMode: 0755
+        - name: backup-storage
+          persistentVolumeClaim:
+            claimName: postgres-backup-storage

@@ -1,0 +1,17 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: dvloper
+
+resources:
+  - pvc-backup-storage.yaml
+  - rbac.yaml
+  - configmap-backup-script.yaml
+  - configmap-restore-script.yaml
+  - cronjob-backup-daily.yaml
+  - job-backup-manual.yaml
+  - job-restore-manual.yaml
+
+commonLabels:
+  app.kubernetes.io/name: postgres-backup
+  app.kubernetes.io/part-of: dvloper

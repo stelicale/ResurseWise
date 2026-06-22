@@ -1,0 +1,36 @@
+command:
+  - /opt/keycloak/bin/kc.sh
+args:
+  - start
+  - --http-enabled=true
+  - --hostname-strict=false
+  - --proxy-headers=forwarded
+
+dbchecker:
+  enabled: true
+
+database:
+  vendor: postgres
+  hostname: postgres-postgresql.postgres.svc.cluster.local
+  port: 5432
+  database: keycloak
+  username: keycloak
+  password: StrongPassw0rd!
+
+http:
+  relativePath: /
+
+extraEnv: |
+  - name: KEYCLOAK_ADMIN
+    value: admin
+  - name: KEYCLOAK_ADMIN_PASSWORD
+    value: admin
+
+ingress:
+  enabled: true
+  ingressClassName: traefik
+  rules:
+    - host: keycloak.local
+      paths:
+        - path: /
+          pathType: Prefix

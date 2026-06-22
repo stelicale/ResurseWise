@@ -1,0 +1,44 @@
+name: frontend-ci
+
+on:
+  push:
+    branches: [ "**" ]
+    paths:
+      - "frontend/**"
+
+jobs:
+  build:
+    runs-on: self-hosted  # echivalentul "full-runner"
+
+    env:
+      IMAGE_FRONTEND: ${{ secrets.HARBOR_REGISTRY }}/${{ secrets.HARBOR_PROJECT }}/${{ secrets.IMAGE_PREFIX }}/frontend:${{ github.sha }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Login to Harbor
+        run: echo "${{ secrets.HARBOR_PASSWORD }}" | docker login ${{ secrets.HARBOR_REGISTRY }} -u "${{ secrets.HARBOR_USERNAME }}" --password-stdin
+
+      - name: Build frontend image
+        run: |
+          docker build \
+            -t "$IMAGE_FRONTEND" \
+            -f frontend/Dockerfile \
+            frontend
+
+      - name: Push image
+        run: docker push "$IMAGE_FRONTEND"
+
+  deploy:
+    needs: build
+    runs-on: self-hosted
+
+    steps:
+      - name: Set kubeconfig
+        run: export KUBECONFIG=/home/gitlab-runner/.kube/config
+
+      - name: Deploy frontend
+        run: |
+          kubectl set image deployment/frontend frontend="$IMAGE_FRONTEND" -n dvloper
+          kubectl rollout status deployment/frontend -n dvloper

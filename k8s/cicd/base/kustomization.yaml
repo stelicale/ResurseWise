@@ -1,0 +1,21 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - configmap-frontend.yaml
+  - configmap-backend.yaml
+  - secret-backend.yaml
+  - deployment-frontend.yaml
+  - deployment-backend.yaml
+  - service-frontend.yaml
+  - service-backend.yaml
+  - ingress.yaml
+images:
+  - name: frontend-image
+    newName: nginx
+    newTag: alpine
+  - name: backend-image
+    newName: nginx
+    newTag: alpine
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: dvloper

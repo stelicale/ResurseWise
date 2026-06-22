@@ -1,0 +1,44 @@
+name: backend-ci
+
+on:
+  push:
+    branches: [ "**" ]
+    paths:
+      - "backend/**"
+
+jobs:
+  build:
+    runs-on: self-hosted
+
+    env:
+      IMAGE_BACKEND: ${{ secrets.HARBOR_REGISTRY }}/${{ secrets.HARBOR_PROJECT }}/${{ secrets.IMAGE_PREFIX }}/backend:${{ github.sha }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Login to Harbor
+        run: echo "${{ secrets.HARBOR_PASSWORD }}" | docker login ${{ secrets.HARBOR_REGISTRY }} -u "${{ secrets.HARBOR_USERNAME }}" --password-stdin
+
+      - name: Build backend image
+        run: |
+          docker build \
+            -t "$IMAGE_BACKEND" \
+            -f backend/Dockerfile \
+            backend
+
+      - name: Push image
+        run: docker push "$IMAGE_BACKEND"
+
+  deploy:
+    needs: build
+    runs-on: self-hosted
+
+    steps:
+      - name: Set kubeconfig
+        run: export KUBECONFIG=/home/gitlab-runner/.kube/config
+
+      - name: Deploy backend
+        run: |
+          kubectl set image deployment/backend backend="$IMAGE_BACKEND" -n dvloper
+          kubectl rollout status deployment/backend -n dvloper

@@ -1,0 +1,54 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-backup-script
+  namespace: dvloper
+data:
+  backup.sh: |
+    #!/bin/bash
+    set -e
+    
+    # Ensure backup directory exists
+    BACKUP_DIR="/backups"
+    mkdir -p "$BACKUP_DIR"
+    
+    # Get database credentials from environment
+    PGHOST=${PGHOST:-postgres}
+    PGPORT=${PGPORT:-5432}
+    PGUSER=${PGUSER:-postgres}
+    PGPASSWORD=${PGPASSWORD}
+    PGDATABASE=${PGDATABASE:-dvloper}
+    
+    # Generate backup filename with timestamp
+    BACKUP_DATE=$(date +%Y%m%d_%H%M%S)
+    BACKUP_FILE="$BACKUP_DIR/postgres_backup_${BACKUP_DATE}.sql"
+    
+    # Execute backup
+    echo "Starting backup at $(date)..."
+    echo "Backing up database: $PGDATABASE"
+    
+    # Export password for pg_dump
+    export PGPASSWORD
+    
+    # Perform backup using pg_dump
+    if pg_dump -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" "$PGDATABASE" > "$BACKUP_FILE"; then
+        echo "Backup completed successfully: $BACKUP_FILE"
+        
+        # Create checksum for integrity verification
+        cd "$BACKUP_DIR"
+        sha256sum "$(basename "$BACKUP_FILE")" > "${BACKUP_FILE}.sha256"
+        echo "Checksum created: ${BACKUP_FILE}.sha256"
+        
+        # Keep only last 7 backups (retention policy)
+        echo "Cleaning up old backups (keeping last 7)..."
+        ls -t1 postgres_backup_*.sql 2>/dev/null | tail -n +8 | while read f; do
+          rm -f "$f" "${f}.sha256"
+          echo "Removed old backup: $f"
+        done
+        
+        echo "Backup finished at $(date)"
+        exit 0
+    else
+        echo "Backup failed!" >&2
+        exit 1
+    fi

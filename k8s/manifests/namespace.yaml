@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: dvloper
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: traefik

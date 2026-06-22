@@ -1,0 +1,148 @@
+# Orchestrare: baza de date, autentificare, backend si frontend
+services:
+  # Serviciu pentru baza de date PostgreSQL a aplicatiei
+  postgres:
+    image: postgres:16
+    container_name: dvloper-postgres
+    environment:
+      POSTGRES_DB: ${APP_DB_NAME:-mydb}
+      POSTGRES_USER: ${APP_DB_USER:-admin}
+      POSTGRES_PASSWORD: ${APP_DB_PASSWORD:-secret}
+    volumes:
+      - postgres_app_data:/var/lib/postgresql/data # Persistenta datelor cu volum numit
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${APP_DB_USER:-admin}"] # Verifica daca DB e gata
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    restart: unless-stopped # Repornire automata daca pica
+    networks:
+      - app_net # Atasare la reteaua comuna
+
+  # Serviciu separat pentru baza de date Keycloak
+  postgres_keycloak:
+    image: postgres:16
+    container_name: dvloper-keycloak-postgres
+    environment:
+      POSTGRES_DB: ${KEYCLOAK_DB_NAME:-keycloak_db}
+      POSTGRES_USER: ${KEYCLOAK_DB_USER:-kc_admin}
+      POSTGRES_PASSWORD: ${KEYCLOAK_DB_PASSWORD:-kc_secret}
+    volumes:
+      - postgres_keycloak_data:/var/lib/postgresql/data # Persistenta datelor Keycloak
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${KEYCLOAK_DB_USER:-kc_admin}"] # Verifica daca DB Keycloak e gata
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    restart: unless-stopped
+    networks:
+      - app_net
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:23.0.0
+    container_name: dvloper-keycloak
+    environment:
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN_USERNAME:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      KC_DB: postgres # Tipul DB folosit
+      KC_DB_URL: jdbc:postgresql://postgres_keycloak:5432/${KEYCLOAK_DB_NAME:-keycloak_db} # Conexiune DB interna
+      KC_DB_USERNAME: ${KEYCLOAK_DB_USER:-kc_admin}
+      KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:-kc_secret}
+      KC_HTTP_ENABLED: "true"
+      KC_HOSTNAME_STRICT: "false"
+    ports:
+      - "8081:8080" # Expune portul 8080 din container pe 8081 local
+    command: start-dev # Ruleaza Keycloak in mod development
+    depends_on:
+      - postgres_keycloak # Porneste dupa ce DB Keycloak e gata
+    restart: unless-stopped
+    networks:
+      - app_net
+
+  backend:
+    build:
+      context: ./backend
+    image: dvloper-backend
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/${APP_DB_NAME:-mydb} # Conexiune DB interna
+      DB_USER: ${APP_DB_USER:-admin}
+      DB_PASSWORD: ${APP_DB_PASSWORD:-secret}
+      JWT_ISSUER_URI: http://localhost:8081/realms/${KEYCLOAK_REALM:-ITResurceManager} # Pentru autentificare locala
+      JWT_JWK_SET_URI: http://keycloak:8080/realms/${KEYCLOAK_REALM:-ITResurceManager}/protocol/openid-connect/certs
+      KEYCLOAK_ADMIN_URL: http://keycloak:8080
+      KEYCLOAK_REALM: ${KEYCLOAK_REALM:-ITResurceManager}
+      KEYCLOAK_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USERNAME:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      SERVER_PORT: 8080
+    depends_on:
+      - postgres
+      - keycloak
+    restart: unless-stopped
+    networks:
+      - app_net
+    deploy:
+      replicas: ${BACKEND_REPLICAS:-1} # Pentru local 1
+      restart_policy:
+        condition: on-failure
+      placement:
+        constraints: [node.role == worker]
+    develop:
+      watch:
+        - action: rebuild
+          path: ./backend/src
+          ignore:
+            - target/
+        - action: rebuild
+          path: ./backend/pom.xml
+        - action: rebuild
+          path: ./backend/Dockerfile
+
+  # Serviciu pentru aplicatia frontend
+  frontend:
+    build:
+      context: ./frontend/my-frontend
+    image: dvloper-frontend
+    depends_on:
+      - backend
+      - keycloak
+    ports:
+      - "8088:80" # Expune portul 80 din container pe 8088 local
+    restart: unless-stopped
+    networks:
+      - app_net
+    deploy:
+      replicas: ${FRONTEND_REPLICAS:-1} # Pentru local 1;
+      restart_policy:
+        condition: on-failure
+      placement:
+        constraints: [node.role == worker]
+    develop:
+      watch:
+        - action: rebuild
+          path: ./frontend/my-frontend/src
+          ignore:
+            - build/
+            - coverage/
+            - node_modules/
+        - action: rebuild
+          path: ./frontend/my-frontend/public
+        - action: rebuild
+          path: ./frontend/my-frontend/package.json
+        - action: rebuild
+          path: ./frontend/my-frontend/package-lock.json
+        - action: rebuild
+          path: ./frontend/my-frontend/nginx.conf
+
+# Volum persistent pentru baza de date
+volumes:
+  postgres_app_data:
+  postgres_keycloak_data:
+
+# Retea comuna pentru toate serviciile
+networks:
+  app_net:
+    # bridge este compatibil cu docker compose local;
+    # pentru swarm poti seta APP_NET_DRIVER=overlay in env.
+    driver: ${APP_NET_DRIVER:-bridge}

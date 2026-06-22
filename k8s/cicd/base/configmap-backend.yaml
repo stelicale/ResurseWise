@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-config
+data:
+  APP_NAME: dvloper-backend
+  APP_ENV: ci
+  SERVER_PORT: "8080"
+  JWT_ISSUER_URI: "http://keycloak.local:30080/realms/ITResurceManager"
+  JWT_JWK_SET_URI: "http://keycloak-keycloakx-http.keycloak.svc.cluster.local/realms/ITResurceManager/protocol/openid-connect/certs"
+  KEYCLOAK_ADMIN_URL: "http://keycloak-keycloakx-http.keycloak.svc.cluster.local"
+  KEYCLOAK_REALM: "ITResurceManager"
