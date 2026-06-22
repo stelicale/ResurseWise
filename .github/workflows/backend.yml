@@ -35,6 +35,9 @@ jobs:
     needs: build
     runs-on: self-hosted
 
+    env:
+      IMAGE_BACKEND: ${{ secrets.HARBOR_REGISTRY }}/${{ secrets.HARBOR_PROJECT }}/${{ secrets.IMAGE_PREFIX }}/backend:${{ github.sha }}
+
     steps:
       - name: Deploy backend
         run: |

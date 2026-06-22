@@ -35,6 +35,9 @@ jobs:
     needs: build
     runs-on: self-hosted
 
+    env:
+      IMAGE_FRONTEND: ${{ secrets.HARBOR_REGISTRY }}/${{ secrets.HARBOR_PROJECT }}/${{ secrets.IMAGE_PREFIX }}/frontend:${{ github.sha }}
+
     steps:
       - name: Deploy frontend
         run: |
