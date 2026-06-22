@@ -1,6 +1,6 @@
-# dvloper.io – Full Stack Application
+# ResurseWise
 
-This repository contains the complete source code and deployment instructions for the dvloper.io application, including both backend (Java Spring Boot) and frontend (React) components, containerized and orchestrated with Docker Swarm for high availability.
+Allows the company to manage staff equipment, including laptops, PCs, mobile phones, software subscriptions, and office chairs. There are two types of users: Administrators, who can add, modify, or remove equipment, and Employees, who can only view their assigned equipment. The platform helps streamline resource tracking, improve accountability, and ensure efficient resource allocation.
 
 ## Table of Contents
 - [Architecture Overview](#architecture-overview)
@@ -8,7 +8,6 @@ This repository contains the complete source code and deployment instructions fo
 - [Prerequisites](#prerequisites)
 - [Local Development](#local-development)
 - [Production Build & Docker](#production-build--docker)
-- [Docker Swarm Deployment](#docker-swarm-deployment)
 - [Kubernetes (k3s) Local Deployment](#kubernetes-k3s-local-deployment)
 - [Monitoring & Scaling](#monitoring--scaling)
 - [References](#references)
@@ -16,7 +15,8 @@ This repository contains the complete source code and deployment instructions fo
 ## Architecture Overview
 - **Backend:** Java 21, Spring Boot 4, PostgreSQL, Keycloak (for authentication)
 - **Frontend:** React 19, served via Nginx
-- **Orchestration:** Docker Swarm (multi-node, high availability)
+- **Orchestration:** Kubernetes (container orchestration for scaling, self-healing, and service management)
+- **CI/CD:** Git-based automation pipeline using container build and deployment workflows
 
 ## Tech Stack
 ### Backend
@@ -36,10 +36,13 @@ This repository contains the complete source code and deployment instructions fo
 - ESLint, Prettier
 
 ## Prerequisites
-- **Java 21+** (for backend development)
-- **Node.js 18+ & npm 9+** (for frontend development)
-- **Docker & Docker Compose**
-- **Docker Swarm** (for production/HA deployment)
+- Java 21+
+- Node.js 18+
+- npm 9+
+- Docker & Docker Compose
+- Kubernetes cluster (k3s recommended for local deployment)
+- kubectl configured access to cluster
+- Harbor (or other container registry) access for images
 
 ## Local Development
 ### Backend
@@ -67,119 +70,45 @@ This repository contains the complete source code and deployment instructions fo
   - `cd frontend/my-frontend`
   - `docker build -t dvloper-frontend .`
 
-## Docker Swarm Deployment
-### 1. Initialize Swarm (on manager node)
-- `docker swarm init`
+## Kubernetes Deployment
 
-### 2. Join workers (on each worker node)
-- `docker swarm join --token <token> <manager-ip>:2377`
+The application is deployed using Kubernetes manifests. For local environments, a lightweight distribution such as k3s can be used.`
 
-### 3. Deploy the stack (on manager)
-- `docker stack deploy -c docker-compose.yml mystack`
+### Apply manifests
+- `kubectl apply -f k8s/`
 
-### 4. Check services and replicas
-- `docker stack services mystack`
-- `docker stack ps mystack`
-- `docker node ls`
+### Check resources
+- `kubectl get pods`
+- `kubectl get services`
+- `kubectl get deployments`
 
-### 5. View logs
-- `docker service logs mystack_backend`
-- `docker service logs mystack_frontend`
-- `docker service logs mystack_keycloak`
-- `docker service logs mystack_postgres`
+### Check rollout status
+- `kubectl rollout status deployment/backend`
+- `kubectl rollout status deployment/frontend`
 
-### 6. Scale services (example: backend to 3 replicas)
-- `docker service scale mystack_backend=3`
+### View logs
+- `kubectl logs -f deployment/backend`
+- `kubectl logs -f deployment/frontend`
 
-## Kubernetes (k3s) Local Deployment
-Use the k3s + Traefik setup guide in [k8s/README.md](k8s/README.md) to install k3s without the default Traefik, install Traefik in its own namespace, apply the manifests, and verify local domain routing.
+## CI/CD Pipeline
 
-## High Availability & Monitoring
-- Services are configured with `deploy.replicas: 2` and `placement.constraints: [node.role == worker]` for HA.
-- Use overlay network for inter-node communication.
-- Monitor with `docker stack services mystack` and `docker node ls`.
-- Avoid overloading nodes with too many replicas.
+The project uses GitHub Actions for automated CI/CD:
+
+- Pipeline flow:
+	1. Trigger on push to repository
+	2. Build Docker images for frontend and backend
+	3. Push images to container registry (e.g. Harbor)
+	4. Deploy updated images to Kubernetes cluster using kubectl
+
+- Key features:
+	- Automatic builds per commit (github.sha tagging)
+	- Separate pipelines for frontend and backend
+	- Self-hosted runner for deployment to Kubernetes cluster
+	- Manual trigger option via GitHub Actions (workflow_dispatch)
 
 ## Security & Best Practices
-- Never commit `.env` files or secrets.
-- Use overlay networks for Swarm.
-- Regularly monitor cluster health.
 
-## References
-- [Docker Swarm Documentation](https://docs.docker.com/engine/swarm/)
-- [Docker Stack Deploy](https://docs.docker.com/engine/reference/commandline/stack_deploy/)
-- [Spring Boot](https://spring.io/projects/spring-boot)
-- [React](https://react.dev/)
-- [Keycloak](https://www.keycloak.org/)
-
-## Orchestration Tool Comparison: Docker Swarm vs Kubernetes
-
-### What is Docker Swarm?
-Docker Swarm is Docker's native clustering and orchestration solution. It allows you to group multiple Docker hosts (nodes) into a single virtual host, enabling you to deploy, manage, and scale containerized applications across a cluster. Swarm provides service discovery, load balancing, scaling, rolling updates, and high availability using a simple and familiar Docker CLI.
-
-### What is Kubernetes?
-Kubernetes is an open-source container orchestration platform originally developed by Google. It automates the deployment, scaling, management, and networking of containerized applications. Kubernetes introduces concepts like pods, deployments, services, and ingress, and is designed for running complex, distributed, and highly available workloads at scale. It is widely adopted in the industry and supported by all major cloud providers.
-
-### Key Differences
-- **Complexity:**
-   - Docker Swarm is simpler to set up and use, with a gentle learning curve.
-   - Kubernetes is more complex, offering advanced features and flexibility for large-scale, production-grade deployments.
-- **Architecture:**
-   - Swarm uses managers and workers, with built-in clustering and service discovery.
-   - Kubernetes uses master and worker nodes, with a rich ecosystem (pods, deployments, services, ingress, etc).
-- **Networking:**
-   - Swarm uses overlay networks and built-in load balancing.
-   - Kubernetes offers advanced networking, ingress controllers, and network policies.
-- **Scaling & Updates:**
-   - Both support scaling and rolling updates, but Kubernetes provides more granular control and automation.
-- **Ecosystem & Community:**
-   - Kubernetes has a larger community, more integrations, and is the industry standard for cloud-native workloads.
-- **Storage & Volumes:**
-   - Kubernetes supports a wider range of persistent storage options and dynamic provisioning.
-- **Monitoring & Logging:**
-   - Kubernetes has richer built-in and third-party monitoring/logging solutions.
-
-### Pros & Cons
-
-#### Docker Swarm
-**Pros:**
-- Easy to learn and set up
-- Integrated with Docker CLI
-- Fast deployments
-- Good for small/medium projects and teams
-
-**Cons:**
-- Limited advanced features
-- Smaller community and ecosystem
-- Less support for complex networking and storage
-- Not as widely adopted in enterprise/cloud
-
-#### Kubernetes
-**Pros:**
-- Highly scalable and flexible
-- Rich ecosystem and integrations
-- Advanced networking, storage, and security
-- Supported by all major cloud providers
-
-**Cons:**
-- Steeper learning curve
-- More complex setup and management
-- Can be overkill for small/simple projects
-
-### Recommendation
-For this application, Docker Swarm is a suitable choice because:
-- The stack is not extremely complex and does not require advanced orchestration features.
-- The team can benefit from Swarm's simplicity and fast setup.
-- Swarm provides high availability and scaling, which are sufficient for current needs.
-
-However, if the application grows in complexity, requires multi-cloud/hybrid deployments, or needs advanced networking, security, or storage, migrating to Kubernetes should be considered.
-
-### Research Summary
-- Key differences, pros, and cons are documented above.
-- Docker Swarm is currently more suitable for this project, but Kubernetes is recommended for future scalability and enterprise needs.
-
-### References
-- [Kubernetes Documentation](https://kubernetes.io/docs/home/)
-- [Docker Swarm Documentation](https://docs.docker.com/engine/swarm/)
-
-*Decision made based on current project requirements, team expertise, and infrastructure. Not solely on popularity.*
+- Sensitive data is managed via environment variables and Kubernetes secrets
+- `.env` files are excluded from version control
+- Container images are versioned using commit SHA
+- Access to cluster is controlled via kubeconfig and RBAC
