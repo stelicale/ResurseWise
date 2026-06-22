@@ -24,8 +24,8 @@ jobs:
         run: |
           docker build \
             -t "$IMAGE_FRONTEND" \
-            -f frontend/Dockerfile \
-            frontend
+            -f frontend/my-frontend/Dockerfile \
+            frontend/my-frontend
 
       - name: Push image
         run: docker push "$IMAGE_FRONTEND"
@@ -35,10 +35,8 @@ jobs:
     runs-on: self-hosted
 
     steps:
-      - name: Set kubeconfig
-        run: export KUBECONFIG=/home/gitlab-runner/.kube/config
-
       - name: Deploy frontend
         run: |
+          export KUBECONFIG=/home/github-runner/.kube/config
           kubectl set image deployment/frontend frontend="$IMAGE_FRONTEND" -n dvloper
           kubectl rollout status deployment/frontend -n dvloper
